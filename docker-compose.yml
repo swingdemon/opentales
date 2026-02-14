@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  opentales-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: opentales-app
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    environment:
+      - NODE_ENV=production
+    networks:
+      - opentales-network
+
+networks:
+  opentales-network:
+    driver: bridge
