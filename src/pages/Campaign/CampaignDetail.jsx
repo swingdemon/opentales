@@ -682,7 +682,17 @@ export default function CampaignDetail() {
 
             <AnimatePresence>
                 {isPinModalOpen && (
-                    <div className="modal-overlay" style={{ background: 'rgba(2, 6, 23, 0.98)', backdropFilter: 'blur(20px)' }}>
+                    <div className="modal-overlay" style={{
+                        position: 'fixed',
+                        top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(2, 6, 23, 0.85)',
+                        backdropFilter: 'blur(20px)',
+                        zIndex: 1000,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '2rem'
+                    }}>
                         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-panel" style={{ maxWidth: '650px', width: '90%', padding: '3.5rem', border: '1px solid rgba(139, 92, 246, 0.4)' }}>
                             <h3 style={{ fontSize: '2rem', fontWeight: 900, marginBottom: '2.5rem' }}>Marcador en el Mapa</h3>
 
