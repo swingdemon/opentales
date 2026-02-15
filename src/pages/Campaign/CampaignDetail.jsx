@@ -56,6 +56,12 @@ export default function CampaignDetail() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
+    // MENTION SYSTEM STATE
+    const [mentionSearch, setMentionSearch] = useState('');
+    const [mentionIndex, setMentionIndex] = useState(-1);
+    const [mentionActive, setMentionActive] = useState(false);
+    const [mentionType, setMentionType] = useState(null); // 'new' or 'edit'
+
     // Data Hooks
     const { entries, loading: loreLoading, addEntry, updateEntry, deleteEntry } = useLore(id);
 
@@ -174,6 +180,46 @@ export default function CampaignDetail() {
         setCurrentScope(scope);
         if (windowWidth <= 768) setIsSidebarOpen(false);
     };
+
+    const handleTextareaChange = (e, type) => {
+        const val = e.target.value;
+        const pos = e.target.selectionStart;
+        const lastChar = val[pos - 1];
+
+        if (type === 'new') setNewLore({ ...newLore, content: val });
+        else setEditFormData({ ...editFormData, content: val });
+
+        if (lastChar === '@') {
+            setMentionActive(true);
+            setMentionIndex(pos);
+            setMentionSearch('');
+            setMentionType(type);
+        } else if (mentionActive) {
+            if (lastChar === ' ' || pos < mentionIndex) {
+                setMentionActive(false);
+            } else {
+                setMentionSearch(val.substring(mentionIndex, pos));
+            }
+        }
+    };
+
+    const selectMention = (entry) => {
+        const target = mentionType === 'new' ? newLore : editFormData;
+        const setter = mentionType === 'new' ? setNewLore : setEditFormData;
+
+        const before = target.content.substring(0, mentionIndex - 1);
+        const after = target.content.substring(eRef.current?.selectionStart || mentionIndex + mentionSearch.length);
+
+        setter({
+            ...target,
+            content: `${before}[[${entry.title}]] ${after}`
+        });
+
+        setMentionActive(false);
+        setMentionSearch('');
+    };
+
+    const eRef = useRef(null); // Ref to capture active textarea
 
     const handleFileUpload = async (file, context, field) => {
         try {
@@ -298,21 +344,27 @@ export default function CampaignDetail() {
                                 cursor: 'pointer',
                                 fontWeight: 700,
                                 borderBottom: '1px dashed rgba(167, 139, 250, 0.4)',
-                                padding: '0 2px',
-                                borderRadius: '4px',
+                                padding: '1px 6px',
+                                borderRadius: '6px',
                                 transition: 'all 0.2s',
-                                display: 'inline'
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                background: 'rgba(139, 92, 246, 0.1)',
+                                margin: '0 2px'
                             }}
                             onMouseEnter={e => {
-                                e.currentTarget.style.background = 'rgba(139, 92, 246, 0.1)';
+                                e.currentTarget.style.background = 'rgba(139, 92, 246, 0.2)';
                                 e.currentTarget.style.color = '#c084fc';
+                                e.currentTarget.style.transform = 'translateY(-1px)';
                             }}
                             onMouseLeave={e => {
-                                e.currentTarget.style.background = 'transparent';
+                                e.currentTarget.style.background = 'rgba(139, 92, 246, 0.1)';
                                 e.currentTarget.style.color = '#a78bfa';
+                                e.currentTarget.style.transform = 'none';
                             }}
                         >
-                            {targetEntry.title}
+                            <span style={{ fontSize: '0.85em', opacity: 0.5, fontWeight: 400 }}>@</span>{targetEntry.title}
                         </span>
                     );
                 }
@@ -526,16 +578,30 @@ export default function CampaignDetail() {
                                             <ImageUploadBox label="Imagen de Arte / PNJ" url={newLore.image_url} isUploading={isUploading} onFileSelect={(f) => handleFileUpload(f, 'new', 'image_url')} />
                                             <ImageUploadBox label="Mapa de Localización (opcional)" url={newLore.map_image_url} isUploading={isUploading} onFileSelect={(f) => handleFileUpload(f, 'new', 'map_image_url')} />
                                         </div>
-                                        <textarea
-                                            placeholder="Describe la historia, rasgos o detalles de este elemento..."
-                                            value={newLore.content}
-                                            onChange={e => setNewLore({ ...newLore, content: e.target.value })}
-                                            className="glass-input"
-                                            style={{
-                                                width: '100%', height: '250px', marginBottom: '2rem', padding: '1.25rem',
-                                                lineHeight: 1.6, background: 'rgba(0,0,0,0.2)', color: 'white'
-                                            }}
-                                        />
+                                        <div style={{ position: 'relative' }}>
+                                            <textarea
+                                                ref={mentionType === 'new' ? eRef : null}
+                                                placeholder="Describe la historia... (Usa @ para enlazar otras entradas)"
+                                                value={newLore.content}
+                                                onChange={e => {
+                                                    eRef.current = e.target;
+                                                    handleTextareaChange(e, 'new');
+                                                }}
+                                                className="glass-input"
+                                                style={{
+                                                    width: '100%', height: '250px', marginBottom: '2rem', padding: '1.25rem',
+                                                    lineHeight: 1.6, background: 'rgba(0,0,0,0.2)', color: 'white'
+                                                }}
+                                            />
+                                            {mentionActive && mentionType === 'new' && (
+                                                <MentionDropdown
+                                                    search={mentionSearch}
+                                                    entries={entries}
+                                                    onSelect={selectMention}
+                                                    isDM={isDM}
+                                                />
+                                            )}
+                                        </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
                                                 <div style={{ marginTop: '0.5rem' }}>
@@ -605,15 +671,30 @@ export default function CampaignDetail() {
                                                     <ImageUploadBox label="Imagen Ilustrativa" url={editFormData.image_url} isUploading={isUploading} onFileSelect={(f) => handleFileUpload(f, 'edit', 'image_url')} />
                                                     <ImageUploadBox label="Mapa Interno" url={editFormData.map_image_url} isUploading={isUploading} onFileSelect={(f) => handleFileUpload(f, 'edit', 'map_image_url')} />
                                                 </div>
-                                                <textarea
-                                                    value={editFormData.content}
-                                                    onChange={e => setEditFormData({ ...editFormData, content: e.target.value })}
-                                                    className="glass-input"
-                                                    style={{
-                                                        width: '100%', height: '350px', marginBottom: '1.5rem', padding: '1.25rem',
-                                                        lineHeight: 1.6, background: 'rgba(0,0,0,0.2)', color: 'white'
-                                                    }}
-                                                />
+                                                <div style={{ position: 'relative' }}>
+                                                    <textarea
+                                                        ref={mentionType === 'edit' ? eRef : null}
+                                                        value={editFormData.content}
+                                                        onChange={e => {
+                                                            eRef.current = e.target;
+                                                            handleTextareaChange(e, 'edit');
+                                                        }}
+                                                        className="glass-input"
+                                                        style={{
+                                                            width: '100%', height: '300px', marginBottom: '2rem', padding: '1.25rem',
+                                                            lineHeight: 1.6, background: 'rgba(0,0,0,0.2)', color: 'white'
+                                                        }}
+                                                    />
+                                                    {mentionActive && mentionType === 'edit' && (
+                                                        <MentionDropdown
+                                                            search={mentionSearch}
+                                                            entries={entries}
+                                                            onSelect={selectMention}
+                                                            isDM={isDM}
+                                                            style={{ bottom: '100%', top: 'auto', marginBottom: '10px' }}
+                                                        />
+                                                    )}
+                                                </div>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', gap: '2rem' }}>
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                                         <label style={{ display: 'block', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Estado de Publicación</label>
@@ -949,6 +1030,94 @@ function TreeItem({ node, depth, expandedNodes, toggleNode, currentScope, setCur
                 </div>
             )}
         </div>
+    );
+}
+
+function MentionDropdown({ search, entries, onSelect, isDM, style = {} }) {
+    const filtered = entries
+        .filter(e => (isDM || e.is_public) && e.title.toLowerCase().includes(search.toLowerCase()))
+        .sort((a, b) => a.title.length - b.title.length)
+        .slice(0, 6);
+
+    if (filtered.length === 0) return null;
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 5 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            style={{
+                position: 'absolute',
+                top: '40px', left: '20px',
+                width: '300px',
+                background: 'rgba(15, 23, 42, 0.98)',
+                backdropFilter: 'blur(40px)',
+                border: '1px solid rgba(139, 92, 246, 0.4)',
+                borderRadius: '16px',
+                zIndex: 2000,
+                boxShadow: '0 25px 50px -12px rgba(0,0,0,0.7)',
+                padding: '8px',
+                overflow: 'hidden',
+                ...style
+            }}
+        >
+            <div style={{
+                fontSize: '0.7rem',
+                color: 'rgba(255,255,255,0.3)',
+                padding: '8px 12px 12px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+                fontWeight: 900,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+            }}>
+                <Search size={10} /> Vincular a la historia
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {filtered.map(entry => (
+                    <button
+                        key={entry.id}
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onSelect(entry); }}
+                        style={{
+                            width: '100%',
+                            padding: '12px 14px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            background: 'transparent',
+                            border: 'none',
+                            borderRadius: '10px',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+                        }}
+                        onMouseEnter={e => {
+                            e.currentTarget.style.background = 'rgba(139, 92, 246, 0.15)';
+                            e.currentTarget.style.transform = 'translateX(4px)';
+                        }}
+                        onMouseLeave={e => {
+                            e.currentTarget.style.background = 'transparent';
+                            e.currentTarget.style.transform = 'none';
+                        }}
+                    >
+                        <div style={{
+                            width: '28px', height: '28px',
+                            background: 'rgba(139, 92, 246, 0.1)',
+                            borderRadius: '8px',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: '#a78bfa'
+                        }}>
+                            <Book size={14} />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ color: 'white', fontSize: '0.9rem', fontWeight: 600 }}>{entry.title}</span>
+                            <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.65rem' }}>Entrada del Atlas</span>
+                        </div>
+                    </button>
+                ))}
+            </div>
+        </motion.div>
     );
 }
 
