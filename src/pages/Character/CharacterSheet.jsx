@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
-import { useLocalStorage } from '../../hooks/useLocalStorage';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useCharacters } from '../../hooks/useCharacters';
 import { useParams } from 'react-router-dom';
+import { supabase } from '../../lib/supabase';
 import {
     User, Heart, Shield, Award, Edit2, Sword, Target, Brain, Smile, Activity,
     Minus, Plus
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const ATTRIBUTES = [
     { key: 'str', label: 'Fuerza', icon: Sword },
@@ -17,17 +19,77 @@ const ATTRIBUTES = [
 
 export default function CharacterSheet() {
     const { id } = useParams();
-    const [characters, setCharacters] = useLocalStorage('opentales_characters', []);
-    const character = characters.find(c => c.id === id) || characters[0];
+    const { characters, loading, updateCharacter: syncCharacterToDB } = useCharacters();
+    const [isInCampaign, setIsInCampaign] = useState(false);
 
-    if (!character) return <div className="p-8">Personaje no encontrado.</div>;
+    // Local state for snappy UI
+    const [localChar, setLocalChar] = useState(null);
+    const [saveStatus, setSaveStatus] = useState('idle'); // idle, saving, saved
+    const debounceTimer = useRef(null);
 
-    const updateCharacter = (updates) => {
-        const updated = { ...character, ...updates };
-        setCharacters(characters.map(c => c.id === id ? updated : c));
+    // Initial load from global characters list
+    useEffect(() => {
+        const char = characters.find(c => c.id === id);
+        if (char && !localChar) {
+            setLocalChar(char);
+        }
+    }, [characters, id, localChar]);
+
+    useEffect(() => {
+        async function checkCampaign() {
+            if (!id) return;
+            const { data } = await supabase
+                .from('campaign_members')
+                .select('id')
+                .eq('character_id', id)
+                .maybeSingle();
+            setIsInCampaign(!!data);
+        }
+        checkCampaign();
+    }, [id]);
+
+    // Handle local change and debounce DB sync
+    const handleLocalChange = (updates) => {
+        if (!localChar) return;
+
+        // Update local state immediately for snappy UI
+        const updated = { ...localChar, ...updates };
+        setLocalChar(updated);
+        setSaveStatus('saving');
+
+        // Cancel previous timer
+        if (debounceTimer.current) clearTimeout(debounceTimer.current);
+
+        // Set new timer to sync with DB
+        debounceTimer.current = setTimeout(async () => {
+            try {
+                await syncCharacterToDB(id, updates);
+                setSaveStatus('saved');
+                // Back to idle after showing "saved" for a moment
+                setTimeout(() => setSaveStatus('idle'), 2000);
+            } catch (error) {
+                console.error('Error syncing character:', error);
+                setSaveStatus('idle');
+            }
+        }, 800); // 800ms delay for better feedback feel
     };
 
-    const getModifier = (stat) => Math.floor((stat - 10) / 2);
+    const adjustStat = (stat, delta) => {
+        const newVal = Math.max(1, (localChar[stat] || 0) + delta);
+        handleLocalChange({ [stat]: newVal });
+    };
+
+    if (loading && !localChar) {
+        return (
+            <div className="container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
+                <div style={{ color: 'var(--text-secondary)' }}>Cargando personaje...</div>
+            </div>
+        );
+    }
+
+    if (!localChar) return <div className="p-8">Personaje no encontrado.</div>;
+
+    const getModifier = (stat) => Math.floor(((stat || 10) - 10) / 2);
 
     return (
         <div className="container" style={{ paddingBottom: '6rem' }}>
@@ -38,17 +100,29 @@ export default function CharacterSheet() {
                 display: 'flex', flexDirection: 'column', gap: '1.5rem',
                 position: 'relative'
             }}>
+                {/* Status Cloud Sync */}
+                <div style={{
+                    position: 'absolute', top: '1rem', right: '1.5rem',
+                    display: 'flex', alignItems: 'center', gap: '0.5rem',
+                    fontSize: '0.75rem', color: 'var(--text-secondary)',
+                    opacity: saveStatus === 'idle' ? 0.4 : 1, transition: 'all 0.3s'
+                }}>
+                    {saveStatus === 'saving' && <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ repeat: Infinity, duration: 1.5 }}>☁️ Guardando...</motion.div>}
+                    {saveStatus === 'saved' && <span style={{ color: '#22c55e' }}>✅ Guardado</span>}
+                    {saveStatus === 'idle' && <span>☁️ Sincronizado</span>}
+                </div>
+
                 <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
                     {/* Avatar */}
                     <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'var(--glass-bg)', overflow: 'hidden', border: '2px solid var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        {character.image ? <img src={character.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <User size={40} />}
+                        {localChar.image ? <img src={localChar.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <User size={40} />}
                     </div>
 
                     {/* Name & Basic Info */}
                     <div style={{ flex: 1, overflow: 'hidden' }}>
                         <input
-                            value={character.name}
-                            onChange={(e) => updateCharacter({ name: e.target.value })}
+                            value={localChar.name}
+                            onChange={(e) => handleLocalChange({ name: e.target.value })}
                             className="glass-input"
                             placeholder="Nombre del Personaje"
                             style={{
@@ -59,14 +133,14 @@ export default function CharacterSheet() {
                         />
                         <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
                             <input
-                                value={character.race}
-                                onChange={(e) => updateCharacter({ race: e.target.value })}
+                                value={localChar.race}
+                                onChange={(e) => handleLocalChange({ race: e.target.value })}
                                 placeholder="Raza"
                                 style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-secondary)', width: '100px', fontSize: '0.9rem', outline: 'none' }}
                             />
                             <input
-                                value={character.class}
-                                onChange={(e) => updateCharacter({ class: e.target.value })}
+                                value={localChar.class}
+                                onChange={(e) => handleLocalChange({ class: e.target.value })}
                                 placeholder="Clase"
                                 style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-secondary)', width: '100px', fontSize: '0.9rem', outline: 'none' }}
                             />
@@ -74,195 +148,123 @@ export default function CharacterSheet() {
                                 <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Nvl</span>
                                 <input
                                     type="number"
-                                    value={character.level}
-                                    onChange={(e) => updateCharacter({ level: parseInt(e.target.value) || 1 })}
-                                    style={{ fontSize: '0.9rem', fontWeight: 700, background: 'transparent', border: 'none', color: 'white', width: '30px', textAlign: 'center', outline: 'none' }}
+                                    value={localChar.level}
+                                    onChange={(e) => handleLocalChange({ level: parseInt(e.target.value) || 1 })}
+                                    style={{ background: 'transparent', border: 'none', color: 'var(--primary)', fontWeight: 700, width: '30px', fontSize: '0.9rem', outline: 'none' }}
                                 />
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Vital Stats Row (Mobile Friendly) */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                    <VitalControl
-                        icon={Heart}
-                        label="HP"
-                        value={character.hp}
-                        max={character.maxHp}
-                        color="#ef4444"
-                        onChange={(val) => updateCharacter({ hp: val })}
-                    />
-                    <ArmorControl
-                        icon={Shield}
-                        label="CA"
-                        value={character.ac}
-                        color="#3b82f6"
-                        onChange={(val) => updateCharacter({ ac: val })}
-                    />
+                {/* Stats Quick Bar */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
+                    <div className="glass-panel" style={{ padding: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(239, 68, 68, 0.05)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Heart size={20} color="#ef4444" />
+                            <div>
+                                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Vida Actual</div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <input
+                                        type="number" value={localChar.hp}
+                                        onChange={(e) => handleLocalChange({ hp: parseInt(e.target.value) || 0 })}
+                                        style={{ background: 'transparent', border: 'none', color: 'white', fontWeight: 800, fontSize: '1.1rem', width: '40px', outline: 'none' }}
+                                    />
+                                    <span style={{ color: 'var(--text-secondary)' }}>/</span>
+                                    <input
+                                        type="number" value={localChar.max_hp}
+                                        onChange={(e) => handleLocalChange({ max_hp: parseInt(e.target.value) || 0 })}
+                                        style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', fontWeight: 600, fontSize: '0.9rem', width: '40px', outline: 'none' }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="glass-panel" style={{ padding: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(59, 130, 246, 0.05)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Shield size={20} color="#3b82f6" />
+                            <div>
+                                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Clase Armadura</div>
+                                <input
+                                    type="number" value={localChar.ac}
+                                    onChange={(e) => handleLocalChange({ ac: parseInt(e.target.value) || 0 })}
+                                    style={{ background: 'transparent', border: 'none', color: 'white', fontWeight: 800, fontSize: '1.1rem', width: '40px', outline: 'none' }}
+                                />
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            {/* Attributes Grid */}
-            <h3 style={{ fontSize: '1rem', color: 'var(--text-secondary)', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Atributos</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '0.75rem', marginBottom: '2rem' }}>
-                {ATTRIBUTES.map(attr => (
-                    <StatControl
-                        key={attr.key}
-                        icon={attr.icon}
-                        label={attr.key.toUpperCase()}
-                        value={character[attr.key] || 10}
-                        modifier={getModifier(character[attr.key] || 10)}
-                        onChange={(val) => updateCharacter({ [attr.key]: val })}
-                    />
-                ))}
-            </div>
+            {/* Main Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
 
-            {/* Tabs / Sections */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                {/* Attributes */}
                 <div className="glass-panel" style={{ padding: '1rem' }}>
-                    <h3 style={{ fontSize: '1.1rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <Sword size={18} color="var(--primary)" /> Inventario & Equipo
+                    <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Award size={18} color="var(--primary)" /> Atributos
                     </h3>
-                    <textarea
-                        placeholder="Armadura de cuero, espada corta, pociones..."
-                        value={character.inventory || ''}
-                        onChange={(e) => updateCharacter({ inventory: e.target.value })}
-                        style={{
-                            width: '100%', height: '150px', background: 'rgba(0,0,0,0.2)',
-                            border: '1px solid var(--glass-border)', borderRadius: '8px',
-                            color: 'var(--text-primary)', resize: 'none', outline: 'none',
-                            fontSize: '0.95rem', lineHeight: '1.5', padding: '0.75rem',
-                            fontFamily: 'inherit'
-                        }}
-                    />
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem' }}>
+                        {ATTRIBUTES.map(attr => (
+                            <div key={attr.key} style={{
+                                background: 'rgba(255,255,255,0.03)', padding: '0.75rem', borderRadius: '12px',
+                                border: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', alignItems: 'center'
+                            }}>
+                                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>{attr.label}</div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <button onClick={() => adjustStat(attr.key, -1)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><Minus size={14} /></button>
+                                    <span style={{ fontSize: '1.25rem', fontWeight: 800, width: '25px', textAlign: 'center' }}>{localChar[attr.key]}</span>
+                                    <button onClick={() => adjustStat(attr.key, 1)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><Plus size={14} /></button>
+                                </div>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 700, marginTop: '4px' }}>
+                                    {getModifier(localChar[attr.key]) >= 0 ? '+' : ''}{getModifier(localChar[attr.key])}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
-                <div className="glass-panel" style={{ padding: '1rem' }}>
-                    <h3 style={{ fontSize: '1.1rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <Edit2 size={18} color="var(--secondary)" /> Notas de Sesión
-                    </h3>
-                    <textarea
-                        placeholder="El posadero nos miró raro..."
-                        value={character.notes || ''}
-                        onChange={(e) => updateCharacter({ notes: e.target.value })}
-                        style={{
-                            width: '100%', height: '150px', background: 'rgba(0,0,0,0.2)',
-                            border: '1px solid var(--glass-border)', borderRadius: '8px',
-                            color: 'var(--text-primary)', resize: 'none', outline: 'none',
-                            fontSize: '0.95rem', lineHeight: '1.5', padding: '0.75rem',
-                            fontFamily: 'inherit'
-                        }}
-                    />
+
+                {/* Inventory & Notes */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                    <div className="glass-panel" style={{ padding: '1rem' }}>
+                        <h3 style={{ fontSize: '1.1rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <Sword size={18} color="var(--primary)" /> Inventario & Equipo
+                        </h3>
+                        <textarea
+                            placeholder="Armadura de cuero, espada corta, pociones..."
+                            value={localChar.inventory || ''}
+                            onChange={(e) => handleLocalChange({ inventory: e.target.value })}
+                            style={{
+                                width: '100%', height: '150px', background: 'rgba(0,0,0,0.2)',
+                                border: '1px solid var(--glass-border)', borderRadius: '8px',
+                                color: 'var(--text-primary)', resize: 'none', outline: 'none',
+                                fontSize: '0.95rem', lineHeight: '1.5', padding: '0.75rem',
+                                fontFamily: 'inherit'
+                            }}
+                        />
+                    </div>
+                    {isInCampaign && (
+                        <div className="glass-panel" style={{ padding: '1rem' }}>
+                            <h3 style={{ fontSize: '1.1rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <Edit2 size={18} color="var(--secondary)" /> Notas de Sesión
+                            </h3>
+                            <textarea
+                                placeholder="El posadero nos miró raro..."
+                                value={localChar.notes || ''}
+                                onChange={(e) => handleLocalChange({ notes: e.target.value })}
+                                style={{
+                                    width: '100%', height: '150px', background: 'rgba(0,0,0,0.2)',
+                                    border: '1px solid var(--glass-border)', borderRadius: '8px',
+                                    color: 'var(--text-primary)', resize: 'none', outline: 'none',
+                                    fontSize: '0.95rem', lineHeight: '1.5', padding: '0.75rem',
+                                    fontFamily: 'inherit'
+                                }}
+                            />
+                        </div>
+                    )}
                 </div>
             </div>
-
         </div>
-    );
-}
-
-// ---- IMPROVED SUBCOMPONENTS ----
-
-function VitalControl({ icon: Icon, label, value, max, color, onChange }) {
-    return (
-        <div className="glass-panel" style={{
-            padding: '1rem 0.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center',
-            background: `linear-gradient(135deg, ${color}15, transparent)`,
-            border: `1px solid ${color}33`, gap: '0.5rem'
-        }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: color }}>
-                <Icon size={16} />
-                <span style={{ fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase' }}>{label}</span>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%' }}>
-                <StepperButton icon={Minus} onClick={() => onChange(value - 1)} />
-                <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'white', lineHeight: 1 }}>{value}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>/ {max}</div>
-                </div>
-                <StepperButton icon={Plus} onClick={() => onChange(value + 1)} />
-            </div>
-        </div>
-    );
-}
-
-function ArmorControl({ icon: Icon, label, value, color, onChange }) {
-    return (
-        <div className="glass-panel" style={{
-            padding: '1rem 0.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center',
-            background: `linear-gradient(135deg, ${color}15, transparent)`,
-            border: `1px solid ${color}33`, gap: '0.5rem'
-        }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: color }}>
-                <Icon size={16} />
-                <span style={{ fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase' }}>{label}</span>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%' }}>
-                <StepperButton icon={Minus} onClick={() => onChange(value - 1)} />
-                <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'white', lineHeight: 1 }}>{value}</div>
-                <StepperButton icon={Plus} onClick={() => onChange(value + 1)} />
-            </div>
-        </div>
-    );
-}
-
-function StatControl({ icon: Icon, label, value, modifier, onChange }) {
-    const modString = modifier >= 0 ? `+${modifier}` : `${modifier}`;
-
-    return (
-        <div className="glass-panel" style={{
-            padding: '0.75rem 0.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center',
-            background: 'rgba(30, 41, 59, 0.4)'
-        }}>
-            <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>{label}</span>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'white', marginBottom: '0.5rem' }}>{modString}</div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%', justifyContent: 'center' }}>
-                <SmallStepperButton icon={Minus} onClick={() => onChange(value - 1)} />
-                <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 600, minWidth: '20px', textAlign: 'center' }}>{value}</span>
-                <SmallStepperButton icon={Plus} onClick={() => onChange(value + 1)} />
-            </div>
-        </div>
-    );
-}
-
-// Button Components
-function StepperButton({ icon: Icon, onClick }) {
-    return (
-        <button
-            onClick={onClick}
-            style={{
-                width: '40px', height: '40px', borderRadius: '12px',
-                background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', color: 'var(--text-primary)', transition: 'background 0.2s',
-                flexShrink: 0
-            }}
-            // Simple hover effect inline
-            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
-            onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-        >
-            <Icon size={20} />
-        </button>
-    );
-}
-
-function SmallStepperButton({ icon: Icon, onClick }) {
-    return (
-        <button
-            onClick={onClick}
-            style={{
-                width: '28px', height: '28px', borderRadius: '8px',
-                background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', color: 'var(--text-secondary)', transition: 'background 0.2s',
-                flexShrink: 0
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = 'white'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
-        >
-            <Icon size={14} />
-        </button>
     );
 }

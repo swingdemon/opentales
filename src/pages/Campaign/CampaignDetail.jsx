@@ -1,275 +1,831 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
-    Map as MapIcon,
-    Search,
-    Settings,
-    Plus,
-    ChevronRight,
-    ChevronDown,
-    Book,
-    FileText,
-    Pin,
-    Minus,
-    X,
-    MoreHorizontal
+    Plus, Search, Filter, Map as MapIcon, Book, Users,
+    Settings, ChevronRight, Eye, EyeOff, Save, X, Edit3, MessageSquare, Trash2, LogOut,
+    MapPin, Castle, Home, Trees, Mountain, Beer, Skull, Image as ImageIcon, Check, ChevronLeft,
+    Upload, Loader2, FolderOpen, Info, ChevronDown, Layout, Globe,
+    Sword, Shield, Scroll, Key, Store, Ghost, Waves, Anchor, Flame, Sparkles, Droplets, Landmark, Compass
 } from 'lucide-react';
-import { FadeIn } from '../../components/ui/FadeIn';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../../contexts/AuthContext';
+import { useLore } from '../../hooks/useLore';
+import { useSessionLogs } from '../../hooks/useSessionLogs';
+import { useMapPins } from '../../hooks/useMapPins';
+import { supabase, uploadImage } from '../../lib/supabase';
+import ConfirmModal from '../../components/ui/ConfirmModal';
 
-// Dummy Data
-const initialStructure = [
-    {
-        id: 'world', type: 'folder', name: 'Atlas de Avaloria', isOpen: true,
-        children: [
-            {
-                id: 'kingdoms', type: 'folder', name: 'Reinos', isOpen: true, children: [
-                    { id: 'elondria', type: 'document', name: 'Elondria Capital de la Luz' },
-                    { id: 'ironhold', type: 'document', name: 'Fortaleza de Hierro' }
-                ]
-            },
-            { id: 'geography', type: 'folder', name: 'Geografía', isOpen: false, children: [] }
-        ]
-    },
-    {
-        id: 'lore', type: 'folder', name: 'Lore & Historia', isOpen: true, children: [
-            { id: 'gods', type: 'document', name: 'Panteón de los Dioses' },
-            { id: 'magic', type: 'document', name: 'Las 3 Escuelas de Magia' }
-        ]
-    }
+const PIN_ICONS = [
+    { id: 'book', icon: Book, label: 'Libro / Diario' },
+    { id: 'map-pin', icon: MapPin, label: 'Marcador' },
+    { id: 'castle', icon: Castle, label: 'Fortaleza' },
+    { id: 'home', icon: Home, label: 'Ciudad' },
+    { id: 'trees', icon: Trees, label: 'Bosque' },
+    { id: 'mountain', icon: Mountain, label: 'Montaña' },
+    { id: 'beer', icon: Beer, label: 'Taberna' },
+    { id: 'skull', icon: Skull, label: 'Peligro' },
+    { id: 'users', icon: Users, label: 'PNJs' },
+    { id: 'sword', icon: Sword, label: 'Combate' },
+    { id: 'shield', icon: Shield, label: 'Defensa' },
+    { id: 'scroll', icon: Scroll, label: 'Misión' },
+    { id: 'key', icon: Key, label: 'Secreto' },
+    { id: 'store', icon: Store, label: 'Tienda' },
+    { id: 'ghost', icon: Ghost, label: 'Mazmorra' },
+    { id: 'waves', icon: Waves, label: 'Agua/Mar' },
+    { id: 'anchor', icon: Anchor, label: 'Puerto' },
+    { id: 'flame', icon: Flame, label: 'Fuego' },
+    { id: 'sparkles', icon: Sparkles, label: 'Magia' },
+    { id: 'droplets', icon: Droplets, label: 'Pozo' },
+    { id: 'landmark', icon: Landmark, label: 'Templo' },
+    { id: 'compass', icon: Compass, label: 'Exploración' },
 ];
-
-const mapPins = [
-    { id: 'elondria', x: 35, y: 40, label: 'Capital Elondria', type: 'city', summary: 'La joya brillante del imperio, hogar de la Gran Biblioteca y el Trono Solar.' },
-    { id: 'danger_zone', x: 75, y: 65, label: 'Ruinas Olvidadas', type: 'danger', summary: 'Antiguas catacumbas infestadas de no-muertos. Nivel recomendado: 5+' }
-];
-
-const TreeItem = ({ item, level = 0 }) => {
-    const [isOpen, setIsOpen] = useState(item.isOpen || false);
-    const toggleOpen = (e) => { e.stopPropagation(); setIsOpen(!isOpen); };
-
-    return (
-        <div style={{ marginLeft: level > 0 ? '12px' : 0 }}>
-            <div
-                style={{
-                    display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: '6px',
-                    cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '0.9rem', transition: 'background 0.2s',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
-            >
-                {item.type === 'folder' && (
-                    <div onClick={toggleOpen} style={{ display: 'flex', alignItems: 'center' }}>
-                        {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                    </div>
-                )}
-                {item.type === 'folder' ? <Book size={14} color="#a78bfa" /> : <FileText size={14} />}
-                <span>{item.name}</span>
-            </div>
-            {item.type === 'folder' && isOpen && item.children && (
-                <div style={{ borderLeft: '1px solid var(--glass-border)', marginLeft: '7px' }}>
-                    {item.children.map(child => <TreeItem key={child.id} item={child} level={level + 1} />)}
-                </div>
-            )}
-        </div>
-    );
-};
 
 export default function CampaignDetail() {
-    const [scale, setScale] = useState(1);
-    const [position, setPosition] = useState({ x: 0, y: 0 });
-    const [isDragging, setIsDragging] = useState(false);
-    const [selectedPin, setSelectedPin] = useState(null);
-    const containerRef = useRef(null);
+    const { id } = useParams();
+    const navigate = useNavigate();
+    const { user } = useAuth();
+    const [campaign, setCampaign] = useState(null);
+    const [activeTab, setActiveTab] = useState('wiki');
+    const [isDM, setIsDM] = useState(false);
 
-    const handleWheel = (e) => {
-        const delta = -e.deltaY * 0.001;
-        setScale(s => Math.min(4, Math.max(0.5, s + delta)));
+    // Navigation State
+    const [currentScope, setCurrentScope] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [expandedNodes, setExpandedNodes] = useState(new Set());
+
+    // Data Hooks
+    const { entries, loading: loreLoading, addEntry, updateEntry, deleteEntry } = useLore(id);
+
+    // Map Navigation Logic (Nearest Map Ancestor)
+    const mapContext = useMemo(() => {
+        if (!currentScope || !entries || entries.length === 0) return null;
+
+        // El contexto de mapa debe ser accesible (público o ser el DM)
+        const isAccessible = (e) => e && (isDM || e.is_public);
+
+        // 1. Si la entrada actual tiene mapa y es accesible, ese es el contexto
+        if (currentScope.map_image_url && isAccessible(currentScope)) return currentScope;
+
+        // 2. Si no, buscar hacia arriba en la jerarquía
+        let parentId = currentScope.parent_id;
+        while (parentId) {
+            const parent = entries.find(e => e.id === parentId);
+            if (!parent) break;
+            if (parent.map_image_url && isAccessible(parent)) return parent;
+            parentId = parent.parent_id;
+        }
+
+        return null;
+    }, [currentScope, entries, isDM]);
+
+    const { pins, addPin } = useMapPins(id, mapContext?.id || null);
+    const [allPins, setAllPins] = useState([]);
+
+    const hasAvailableMap = useMemo(() => {
+        // Estricto: Solo mostrar si el elemento actual (campaña o entrada) tiene mapa propio.
+        if (!currentScope) return !!campaign?.map_image_url;
+        return !!currentScope.map_image_url && (isDM || currentScope.is_public);
+    }, [currentScope, campaign?.map_image_url, isDM]);
+
+    useEffect(() => {
+        if (!hasAvailableMap && activeTab === 'map') {
+            setActiveTab('wiki');
+        }
+    }, [hasAvailableMap, activeTab]);
+
+    // Form States
+    const [isAddingLore, setIsAddingLore] = useState(false);
+    const [newLore, setNewLore] = useState({ title: '', content: '', is_public: false, image_url: '', map_image_url: '', place_pin: false, icon_type: 'book' });
+    const [isUploading, setIsUploading] = useState(false);
+    const [editingLoreId, setEditingLoreId] = useState(null);
+    const [editFormData, setEditFormData] = useState({ title: '', content: '', is_public: false, image_url: '', map_image_url: '', icon_type: 'book' });
+
+    const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+    const [tempPinPos, setTempPinPos] = useState({ x: 0, y: 0 });
+    const [selectedPinIcon, setSelectedPinIcon] = useState('map-pin');
+    const [pinFormData, setPinFormData] = useState({ title: '', content: '', is_public: true, image_url: '', map_image_url: '' });
+
+    // Modals
+    const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+    const [isCascadeModalOpen, setIsCascadeModalOpen] = useState(false);
+    const [isDeleteCampaignModalOpen, setIsDeleteCampaignModalOpen] = useState(false);
+    const [entryToDelete, setEntryToDelete] = useState(null);
+
+    useEffect(() => {
+        async function initCampaign() {
+            if (!user) return;
+            const { data: campaignData } = await supabase.from('campaigns').select('*').eq('id', id).single();
+            if (campaignData) {
+                setCampaign(campaignData);
+                setIsDM(campaignData.user_id === user.id);
+            }
+            loadAllPins();
+        }
+        initCampaign();
+    }, [id, user]);
+
+    const loadAllPins = async () => {
+        const { data } = await supabase.from('map_pins').select('lore_id, icon_type').eq('campaign_id', id);
+        setAllPins(data || []);
     };
 
-    const handleMouseDown = (e) => {
-        if (e.target.closest('.map-pin')) return;
-        if (e.button === 0) { setIsDragging(true); e.currentTarget.style.cursor = 'grabbing'; }
+    const treeData = useMemo(() => {
+        const buildTree = (parentId = null) => {
+            const children = entries.filter(e => e.parent_id === parentId);
+
+            const filtered = children.filter(e => {
+                const matchesSearch = e.title.toLowerCase().includes(searchQuery.toLowerCase());
+
+                // Función recursiva para buscar en descendientes
+                const hasMatchingDescendant = (nodeId) => {
+                    const nodeChildren = entries.filter(child => child.parent_id === nodeId);
+                    return nodeChildren.some(child =>
+                        child.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        hasMatchingDescendant(child.id)
+                    );
+                };
+
+                // El nodo es visible si: (Es DM o Público) Y (Él coincide O un hijo coincide)
+                return (isDM || e.is_public) && (matchesSearch || hasMatchingDescendant(e.id));
+            });
+
+            return filtered.map(e => ({ ...e, children: buildTree(e.id) }));
+        };
+        return buildTree();
+    }, [entries, searchQuery, isDM]);
+
+    const toggleNode = (nodeId) => {
+        const newExpanded = new Set(expandedNodes);
+        if (newExpanded.has(nodeId)) newExpanded.delete(nodeId);
+        else newExpanded.add(nodeId);
+        setExpandedNodes(newExpanded);
     };
 
-    const handleMouseMove = (e) => {
-        if (isDragging) setPosition(p => ({ x: p.x + e.movementX, y: p.y + e.movementY }));
+    const handleFileUpload = async (file, context, field) => {
+        try {
+            setIsUploading(true);
+            const url = await uploadImage(file);
+            if (context === 'edit') setEditFormData(prev => ({ ...prev, [field]: url }));
+            else if (context === 'new') setNewLore(prev => ({ ...prev, [field]: url }));
+            else if (context === 'pin') setPinFormData(prev => ({ ...prev, [field]: url }));
+        } catch (err) { alert(err.message); } finally { setIsUploading(false); }
     };
 
-    const handleMouseUp = (e) => { setIsDragging(false); e.currentTarget.style.cursor = 'grab'; };
+    const handleCreateLore = async () => {
+        if (!newLore.title) return;
+        const { place_pin, icon_type, ...loreData } = newLore;
+        const entry = await addEntry(loreData, currentScope?.id || null);
+
+        if (place_pin) {
+            setPinFormData({ ...newLore, title: entry.title });
+            setSelectedPinIcon(icon_type || 'map-pin');
+            setTempPinPos({ x: 50, y: 50 });
+            setIsPinModalOpen(true);
+        }
+
+        setNewLore({ title: '', content: '', is_public: false, image_url: '', map_image_url: '', place_pin: false, icon_type: 'book' });
+        setIsAddingLore(false);
+        loadAllPins();
+    };
+
+    const handleDeleteCampaign = async () => {
+        try {
+            const { error } = await supabase.from('campaigns').delete().eq('id', id);
+            if (error) throw error;
+            navigate('/dashboard');
+        } catch (err) {
+            alert("Error al eliminar la campaña: " + err.message);
+        }
+    };
+
+    const handleUpdateLore = async (forceCascade = false) => {
+        const { title, content, is_public, image_url, map_image_url, icon_type } = editFormData;
+
+        // TRIGGER CASCADA: Si pasamos de público a privado y tiene hijos
+        if (forceCascade !== true && currentScope.is_public && !is_public) {
+            const hasChildren = entries.some(e => e.parent_id === editingLoreId);
+            if (hasChildren) {
+                setIsCascadeModalOpen(true);
+                return;
+            }
+        }
+
+        const { icon_type: entryIcon, ...updates } = { title, content, is_public, image_url, map_image_url, icon_type };
+        await updateEntry(editingLoreId, updates);
+
+        // Sincronizar el icono con el pin del mapa si existe
+        await supabase.from('map_pins').update({ icon_type }).eq('lore_id', editingLoreId);
+
+
+        if (forceCascade) {
+            const descendants = [];
+            const getDescendants = (pid) => {
+                const children = entries.filter(e => e.parent_id === pid);
+                children.forEach(c => {
+                    descendants.push(c.id);
+                    getDescendants(c.id);
+                });
+            };
+            getDescendants(editingLoreId);
+            if (descendants.length > 0) {
+                await supabase.from('lore_entries').update({ is_public: false }).in('id', descendants);
+            }
+        }
+
+        if (currentScope?.id === editingLoreId) setCurrentScope({ ...currentScope, ...editFormData });
+        setEditingLoreId(null);
+        setIsCascadeModalOpen(false);
+    };
+
+    const confirmPinPlacement = async () => {
+        if (!pinFormData.title) return;
+        let entryId = editingLoreId || entries.find(e => e.title === pinFormData.title)?.id;
+        if (!entryId) {
+            const entry = await addEntry(pinFormData, currentScope?.id || null);
+            entryId = entry.id;
+        }
+
+        await addPin({
+            x_pos: tempPinPos.x,
+            y_pos: tempPinPos.y,
+            lore_id: entryId,
+            icon_type: selectedPinIcon,
+            parent_lore_id: currentScope?.id || null
+        });
+        setIsPinModalOpen(false);
+        loadAllPins();
+    };
+
+    const getPinIcon = (type, size = 20) => {
+        const iconObj = PIN_ICONS.find(i => i.id === type) || PIN_ICONS[0];
+        const IconComp = iconObj.icon;
+        return <IconComp size={size} />;
+    };
+
+    if (!campaign) return <div className="p-8">Cargando Atlas...</div>;
 
     return (
-        <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', height: '100vh', background: '#020617', color: 'white', overflow: 'hidden' }}>
 
-            {/* Sidebar */}
-            <aside className="glass-panel" style={{
-                width: '300px', borderRadius: 0, borderRight: '1px solid var(--glass-border)', borderTop: 0, borderBottom: 0, borderLeft: 0,
-                display: 'flex', flexDirection: 'column', zIndex: 20, background: 'rgba(15, 23, 42, 0.95)'
-            }}>
-                <div style={{ padding: '1rem', borderBottom: '1px solid var(--glass-border)' }}>
-                    <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Ecos de Avaloria</h2>
-                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
-                        <div className="glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', flex: 1 }}>
-                            <Search size={14} color="var(--text-secondary)" />
-                            <input type="text" placeholder="Buscar..." style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '0.85rem', width: '100%', outline: 'none' }} />
+            {/* SIDEBAR EXPLORER */}
+            <aside style={{ width: '320px', background: '#0f172a', borderRight: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ padding: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.5rem' }}>
+                        <div style={{
+                            width: '32px', height: '32px',
+                            background: 'rgba(139, 92, 246, 0.15)',
+                            borderRadius: '10px',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            border: '1px solid rgba(139, 92, 246, 0.3)'
+                        }}>
+                            <Globe size={20} color="#8b5cf6" />
                         </div>
+                        <span style={{ fontWeight: 800, fontSize: '0.9rem', letterSpacing: '2px', color: '#8b5cf6' }}>OPENTALES</span>
+                    </div>
+                    <div style={{ position: 'relative' }}>
+                        <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }} />
+                        <input
+                            placeholder="Buscar en el atlas..."
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                            style={{
+                                width: '100%',
+                                padding: '10px 12px 10px 38px',
+                                fontSize: '0.85rem',
+                                background: 'rgba(255,255,255,0.03)',
+                                border: '1px solid rgba(255,255,255,0.05)',
+                                borderRadius: '10px',
+                                color: 'white',
+                                outline: 'none',
+                                transition: 'all 0.3s ease'
+                            }}
+                            onFocus={(e) => {
+                                e.target.style.background = 'rgba(255,255,255,0.05)';
+                                e.target.style.borderColor = 'rgba(139, 92, 246, 0.5)';
+                                e.target.style.boxShadow = '0 0 15px rgba(139, 92, 246, 0.1)';
+                            }}
+                            onBlur={(e) => {
+                                e.target.style.background = 'rgba(255,255,255,0.03)';
+                                e.target.style.borderColor = 'rgba(255,255,255,0.05)';
+                                e.target.style.boxShadow = 'none';
+                            }}
+                        />
                     </div>
                 </div>
-                <div style={{ flex: 1, overflowY: 'auto', padding: '1rem' }}>
-                    {initialStructure.map(item => <TreeItem key={item.id} item={item} />)}
-                </div>
-            </aside>
 
-            {/* Main Map Area */}
-            <div
-                ref={containerRef}
-                style={{ flex: 1, position: 'relative', background: '#0b0f19', overflow: 'hidden', cursor: 'grab' }}
-                onWheel={handleWheel}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
-            >
-                {/* Map Toolbar */}
-                <div className="glass-panel" style={{ position: 'absolute', bottom: '2rem', right: '2rem', display: 'flex', gap: '0.5rem', padding: '0.5rem', zIndex: 10 }}>
-                    <button onClick={() => setScale(s => Math.max(0.5, s - 0.2))} style={{ padding: '8px', color: 'white', cursor: 'pointer' }}><Minus size={20} /></button>
-                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', padding: '8px', minWidth: '3rem', textAlign: 'center' }}>{Math.round(scale * 100)}%</span>
-                    <button onClick={() => setScale(s => Math.min(4, s + 0.2))} style={{ padding: '8px', color: 'white', cursor: 'pointer' }}><Plus size={20} /></button>
-                </div>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 0' }}>
+                    <div
+                        onClick={() => { setCurrentScope(null); setIsAddingLore(false); }}
+                        style={{
+                            padding: '10px 1.5rem', cursor: 'pointer',
+                            background: currentScope === null && !isAddingLore ? 'rgba(139, 92, 246, 0.15)' : 'transparent',
+                            display: 'flex', alignItems: 'center', gap: '10px', color: currentScope === null ? 'white' : 'rgba(255,255,255,0.4)',
+                            borderLeft: currentScope === null && !isAddingLore ? '3px solid #8b5cf6' : '3px solid transparent'
+                        }}
+                    >
+                        <Layout size={16} /> <span style={{ fontSize: '0.85rem', fontWeight: currentScope === null ? 700 : 500 }}>{campaign.title}</span>
+                    </div>
 
-                {/* Map Canvas */}
-                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-                    <div style={{
-                        transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
-                        transition: isDragging ? 'none' : 'transform 0.1s cubic-bezier(0.1, 0.7, 1.0, 0.1)',
-                        transformOrigin: 'center', position: 'relative', pointerEvents: 'auto'
-                    }}>
-                        <img
-                            src="https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&q=80&w=2674"
-                            alt="World Map"
-                            style={{ maxWidth: 'none', height: 'auto', width: '2000px', borderRadius: '4px', boxShadow: '0 0 50px rgba(0,0,0,0.5)', display: 'block' }}
-                            draggable={false}
-                        />
-
-                        {/* Pins */}
-                        {mapPins.map(pin => (
-                            <MapPinItem
-                                key={pin.id}
-                                pin={pin}
-                                scale={scale}
-                                isSelected={selectedPin?.id === pin.id}
-                                onClick={() => setSelectedPin(pin)}
+                    <div style={{ marginTop: '0.5rem' }}>
+                        {treeData.map(node => (
+                            <TreeItem
+                                key={node.id}
+                                node={node}
+                                depth={0}
+                                expandedNodes={expandedNodes}
+                                toggleNode={toggleNode}
+                                currentScope={currentScope}
+                                setCurrentScope={setCurrentScope}
+                                allPins={allPins}
+                                getPinIcon={getPinIcon}
+                                onAddClick={() => setIsAddingLore(true)}
+                                isDM={isDM}
                             />
                         ))}
                     </div>
                 </div>
 
-                {/* Quick View Drawer (Right) */}
-                <AnimatePresence>
-                    {selectedPin && (
-                        <motion.div
-                            initial={{ x: 300, opacity: 0 }}
-                            animate={{ x: 0, opacity: 1 }}
-                            exit={{ x: 300, opacity: 0 }}
-                            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                            className="glass-panel"
-                            style={{
-                                position: 'absolute', top: '1rem', right: '1rem', bottom: '1rem',
-                                width: '320px', padding: '1.5rem', zIndex: 30, display: 'flex', flexDirection: 'column',
-                                background: 'rgba(15, 23, 42, 0.98)', borderLeft: '1px solid var(--glass-border)'
-                            }}
-                        >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1.5rem' }}>
-                                <h2 style={{ fontSize: '1.5rem', fontWeight: 700, lineHeight: 1.2 }}>{selectedPin.label}</h2>
-                                <button onClick={() => setSelectedPin(null)} style={{ padding: '4px', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={20} /></button>
+                {isDM && (
+                    <div style={{ padding: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                        <button className="btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => { setIsAddingLore(true); setActiveTab('wiki'); setCurrentScope(null); }}>
+                            <Plus size={18} /> Nueva Entrada
+                        </button>
+                    </div>
+                )}
+            </aside>
+
+            {/* MAIN VIEWPORT */}
+            <main style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#020617' }}>
+
+                {/* TOP BAR */}
+                <header style={{ height: '64px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 2rem' }}>
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                        <HeaderTab active={activeTab === 'wiki'} onClick={() => setActiveTab('wiki')} icon={<Book size={16} />} label="Atlas / Wiki" />
+                        {hasAvailableMap && (
+                            <HeaderTab active={activeTab === 'map'} onClick={() => setActiveTab('map')} icon={<MapIcon size={16} />} label="Mapa Interactivo" />
+                        )}
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        {isDM && (
+                            <button
+                                onClick={() => setIsDeleteCampaignModalOpen(true)}
+                                className="btn-icon"
+                                style={{ color: '#f87171', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)' }}
+                                title="Eliminar campaña"
+                            >
+                                <Trash2 size={18} />
+                            </button>
+                        )}
+                        <Link to="/dashboard" className="btn-icon" title="Volver al Dashboard"><LogOut size={18} /></Link>
+                    </div>
+                </header>
+
+                {/* CONTENT AREA */}
+                <div style={{ flex: 1, overflowY: 'auto' }}>
+
+                    {/* WIKI TAB */}
+                    {activeTab === 'wiki' && (
+                        <div className="fade-in" style={{ maxWidth: '900px', margin: '0 auto', padding: '3rem 2rem' }}>
+
+                            {isAddingLore ? (
+                                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-panel" style={{ padding: '3rem', border: '1px solid #8b5cf6' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                                        <h2 style={{ fontSize: '1.8rem', fontWeight: 900 }}>Nueva entrada {currentScope ? `en ${currentScope.title}` : 'Global'}</h2>
+                                        <button onClick={() => setIsAddingLore(false)} className="btn-icon"><X size={24} /></button>
+                                    </div>
+                                    <input placeholder="Título de la entrada (Lugar, PNJ, Objeto...)" value={newLore.title} onChange={e => setNewLore({ ...newLore, title: e.target.value })} className="glass-input" style={{ width: '100%', marginBottom: '1.5rem', fontSize: '1.2rem', padding: '1rem' }} />
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
+                                        <ImageUploadBox label="Imagen de Arte / PNJ" url={newLore.image_url} isUploading={isUploading} onFileSelect={(f) => handleFileUpload(f, 'new', 'image_url')} />
+                                        <ImageUploadBox label="Mapa de Localización (opcional)" url={newLore.map_image_url} isUploading={isUploading} onFileSelect={(f) => handleFileUpload(f, 'new', 'map_image_url')} />
+                                    </div>
+                                    <textarea
+                                        placeholder="Describe la historia, rasgos o detalles de este elemento..."
+                                        value={newLore.content}
+                                        onChange={e => setNewLore({ ...newLore, content: e.target.value })}
+                                        className="glass-input"
+                                        style={{
+                                            width: '100%', height: '250px', marginBottom: '2rem', padding: '1.25rem',
+                                            lineHeight: 1.6, background: 'rgba(0,0,0,0.2)', color: 'white'
+                                        }}
+                                    />
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
+                                            <div style={{ marginTop: '0.5rem' }}>
+                                                <label style={{ display: 'block', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Visibilidad Inicial</label>
+                                                <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.3)', padding: '4px', borderRadius: '12px', width: 'fit-content' }}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setNewLore({ ...newLore, is_public: false })}
+                                                        style={{
+                                                            padding: '8px 16px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px',
+                                                            background: !newLore.is_public ? 'rgba(245, 158, 11, 0.2)' : 'transparent',
+                                                            color: !newLore.is_public ? '#f59e0b' : 'rgba(255,255,255,0.3)',
+                                                            border: !newLore.is_public ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid transparent',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        <EyeOff size={14} /> PRIVADO (MASTER)
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setNewLore({ ...newLore, is_public: true })}
+                                                        style={{
+                                                            padding: '8px 16px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px',
+                                                            background: newLore.is_public ? 'rgba(16, 185, 129, 0.2)' : 'transparent',
+                                                            color: newLore.is_public ? '#10b981' : 'rgba(255,255,255,0.3)',
+                                                            border: newLore.is_public ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid transparent',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        <Eye size={14} /> PÚBLICO (JUGADORES)
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginBottom: '8px', textTransform: 'uppercase' }}>Icono Sugerido</label>
+                                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', maxHeight: '100px', overflowY: 'auto', padding: '8px', background: 'rgba(0,0,0,0.2)', borderRadius: '12px' }}>
+                                                    {PIN_ICONS.map(i => (
+                                                        <button
+                                                            key={i.id}
+                                                            type="button"
+                                                            onClick={() => setNewLore({ ...newLore, icon_type: i.id })}
+                                                            style={{
+                                                                padding: '8px', borderRadius: '8px', background: newLore.icon_type === i.id ? '#8b5cf6' : 'transparent',
+                                                                border: 'none', cursor: 'pointer', transition: 'all 0.2s'
+                                                            }}
+                                                        >
+                                                            <i.icon size={16} color={newLore.icon_type === i.id ? 'white' : 'rgba(255,255,255,0.4)'} />
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '1rem' }}>
+                                            <button className="btn-secondary" onClick={() => setIsAddingLore(false)}>Descartar</button>
+                                            <button className="btn-primary" onClick={handleCreateLore} style={{ padding: '0.8rem 2rem' }}>Crear Atlas</button>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            ) : currentScope ? (
+                                <div>
+                                    {editingLoreId === currentScope.id ? (
+                                        <div className="glass-panel" style={{ padding: '3rem', border: '1px solid #8b5cf6' }}>
+                                            <input value={editFormData.title} onChange={e => setEditFormData({ ...editFormData, title: e.target.value })} className="glass-input" style={{ width: '100%', fontSize: '1.5rem', marginBottom: '1.5rem', padding: '1rem' }} />
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
+                                                <ImageUploadBox label="Imagen Ilustrativa" url={editFormData.image_url} isUploading={isUploading} onFileSelect={(f) => handleFileUpload(f, 'edit', 'image_url')} />
+                                                <ImageUploadBox label="Mapa Interno" url={editFormData.map_image_url} isUploading={isUploading} onFileSelect={(f) => handleFileUpload(f, 'edit', 'map_image_url')} />
+                                            </div>
+                                            <textarea
+                                                value={editFormData.content}
+                                                onChange={e => setEditFormData({ ...editFormData, content: e.target.value })}
+                                                className="glass-input"
+                                                style={{
+                                                    width: '100%', height: '350px', marginBottom: '1.5rem', padding: '1.25rem',
+                                                    lineHeight: 1.6, background: 'rgba(0,0,0,0.2)', color: 'white'
+                                                }}
+                                            />
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', gap: '2rem' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Estado de Publicación</label>
+                                                    <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.3)', padding: '4px', borderRadius: '12px', width: 'fit-content' }}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setEditFormData({ ...editFormData, is_public: false })}
+                                                            style={{
+                                                                padding: '8px 16px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px',
+                                                                background: !editFormData.is_public ? 'rgba(245, 158, 11, 0.2)' : 'transparent',
+                                                                color: !editFormData.is_public ? '#f59e0b' : 'rgba(255,255,255,0.3)',
+                                                                border: !editFormData.is_public ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid transparent',
+                                                                cursor: 'pointer'
+                                                            }}
+                                                        >
+                                                            <EyeOff size={14} /> PRIVADO
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setEditFormData({ ...editFormData, is_public: true })}
+                                                            style={{
+                                                                padding: '8px 16px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px',
+                                                                background: editFormData.is_public ? 'rgba(16, 185, 129, 0.2)' : 'transparent',
+                                                                color: editFormData.is_public ? '#10b981' : 'rgba(255,255,255,0.3)',
+                                                                border: editFormData.is_public ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid transparent',
+                                                                cursor: 'pointer'
+                                                            }}
+                                                        >
+                                                            <Eye size={14} /> PÚBLICO
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <div style={{ flex: 1 }}>
+                                                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginBottom: '8px', textTransform: 'uppercase' }}>Cambiar Icono</label>
+                                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', maxHeight: '80px', overflowY: 'auto', padding: '8px', background: 'rgba(0,0,0,0.2)', borderRadius: '12px' }}>
+                                                        {PIN_ICONS.map(i => (
+                                                            <button
+                                                                key={i.id}
+                                                                type="button"
+                                                                onClick={() => setEditFormData({ ...editFormData, icon_type: i.id })}
+                                                                style={{
+                                                                    padding: '8px', borderRadius: '8px', background: editFormData.icon_type === i.id ? '#8b5cf6' : 'transparent',
+                                                                    border: 'none', cursor: 'pointer', transition: 'all 0.2s'
+                                                                }}
+                                                            >
+                                                                <i.icon size={16} color={editFormData.icon_type === i.id ? 'white' : 'rgba(255,255,255,0.4)'} />
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
+                                                    <button className="btn-secondary" onClick={() => setEditingLoreId(null)}>Cancelar</button>
+                                                    <button className="btn-primary" onClick={handleUpdateLore}>Guardar Cambios</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                                            {currentScope.image_url && (
+                                                <img src={currentScope.image_url} style={{ width: '100%', height: '450px', objectFit: 'cover', borderRadius: '32px', marginBottom: '3.5rem', border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 30px 60px rgba(0,0,0,0.6)' }} />
+                                            )}
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                                                    <h1 style={{ fontSize: '4rem', fontWeight: 900, letterSpacing: '-0.04em' }}>{currentScope.title}</h1>
+                                                    {isDM && (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: currentScope.is_public ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', borderRadius: '20px', border: `1px solid ${currentScope.is_public ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)'}` }}>
+                                                            {currentScope.is_public ? <Eye size={14} color="#10b981" /> : <EyeOff size={14} color="#f59e0b" />}
+                                                            <span style={{ fontSize: '0.75rem', fontWeight: 800, color: currentScope.is_public ? '#10b981' : '#f59e0b', textTransform: 'uppercase' }}>
+                                                                {currentScope.is_public ? 'Público' : 'Secreto'}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                {isDM && (
+                                                    <div style={{ display: 'flex', gap: '1rem' }}>
+                                                        <button
+                                                            onClick={() => { setEditFormData(currentScope); setEditingLoreId(currentScope.id); }}
+                                                            className="btn-icon"
+                                                            style={{ background: 'rgba(139, 92, 246, 0.2)', color: '#a78bfa', border: '1px solid rgba(139, 92, 246, 0.3)' }}
+                                                        >
+                                                            <Edit3 size={24} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => { setEntryToDelete(currentScope); setIsConfirmOpen(true); }}
+                                                            className="btn-icon"
+                                                            style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.2)' }}
+                                                        >
+                                                            <Trash2 size={24} />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <p style={{ fontSize: '1.25rem', lineHeight: 1.8, color: 'rgba(255,255,255,0.9)', whiteSpace: 'pre-wrap' }}>{currentScope.content || 'Sin descripción redactada.'}</p>
+                                        </motion.div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div style={{ textAlign: 'center', marginTop: '8rem' }}>
+                                    <div style={{ width: '120px', height: '120px', background: 'rgba(139, 92, 246, 0.05)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 2.5rem' }}>
+                                        <Book size={64} style={{ opacity: 0.15, color: '#8b5cf6' }} />
+                                    </div>
+                                    <h2 style={{ fontSize: '3rem', fontWeight: 900, marginBottom: '1.5rem' }}>Atlas de {campaign.title}</h2>
+                                    <p style={{ color: 'rgba(255,255,255,0.4)', maxWidth: '550px', margin: '0 auto', fontSize: '1.2rem', lineHeight: 1.6 }}>El conocimiento es poder. Navega por el menú de la izquierda para desplegar la historia de este mundo.</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* MAP TAB */}
+                    {activeTab === 'map' && (
+                        <div className="fade-in" style={{ height: 'calc(100vh - 64px)', position: 'relative' }}>
+                            <div
+                                onClick={(e) => {
+                                    if (!isDM) return;
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    setTempPinPos({ x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100 });
+                                    setPinFormData({ title: '', content: '', is_public: true, image_url: '', map_image_url: '' });
+                                    setEditingLoreId(null);
+                                    setIsPinModalOpen(true);
+                                }}
+                                style={{
+                                    width: '100%', height: '100%',
+                                    background: `url(${mapContext?.map_image_url || campaign.map_image_url || 'https://images.unsplash.com/photo-1580136608260-42d1c49e6a75?auto=format&fit=crop&q=80&w=2000'}) center/cover`,
+                                    cursor: isDM ? 'crosshair' : 'default', backgroundSize: 'cover'
+                                }}
+                            >
+                                {pins
+                                    .filter(p => isDM || p.lore?.is_public) // FILTRO DE SEGURIDAD PARA PINES
+                                    .map(pin => {
+                                        const isTarget = currentScope?.id === pin.lore_id;
+                                        return (
+                                            <div
+                                                key={pin.id}
+                                                style={{ position: 'absolute', left: `${pin.x_pos}%`, top: `${pin.y_pos}%`, transform: 'translate(-50%, -100%)', cursor: 'pointer', zIndex: isTarget ? 20 : 10 }}
+                                                onClick={(e) => { e.stopPropagation(); setCurrentScope(pin.lore); setActiveTab('wiki'); }}
+                                            >
+                                                <motion.div
+                                                    animate={isTarget ? { scale: [1, 1.3, 1], boxShadow: ['0 0 0px #8b5cf6', '0 0 20px #8b5cf6', '0 0 0px #8b5cf6'] } : {}}
+                                                    transition={isTarget ? { repeat: Infinity, duration: 2 } : {}}
+                                                    whileHover={{ scale: 1.2 }}
+                                                    style={{
+                                                        padding: '10px', background: isTarget ? '#8b5cf6' : '#0f172a',
+                                                        border: `2px solid ${isTarget ? 'white' : '#8b5cf6'}`,
+                                                        borderRadius: '14px', color: isTarget ? 'white' : '#8b5cf6',
+                                                        boxShadow: '0 10px 30px rgba(0,0,0,0.7)'
+                                                    }}
+                                                >
+                                                    {getPinIcon(pin.icon_type, isTarget ? 26 : 22)}
+                                                </motion.div>
+                                                <div style={{
+                                                    position: 'absolute', top: '115%', left: '50%', transform: 'translateX(-50%)',
+                                                    whiteSpace: 'nowrap', fontSize: isTarget ? '0.9rem' : '0.8rem', padding: '5px 12px',
+                                                    background: isTarget ? '#8b5cf6' : 'rgba(15, 23, 42, 0.95)',
+                                                    borderRadius: '8px', fontWeight: 800, border: '1px solid rgba(255,255,255,0.05)',
+                                                    color: 'white', zIndex: 30
+                                                }}>
+                                                    {pin.lore?.title}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                             </div>
+                        </div>
+                    )}
+                </div>
+            </main >
 
-                            <div style={{ height: '150px', background: 'var(--glass-bg)', borderRadius: '8px', marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                {/* Placeholder Image */}
-                                <MapIcon size={40} color="var(--primary)" opacity={0.5} />
-                            </div>
+            <AnimatePresence>
+                {isPinModalOpen && (
+                    <div className="modal-overlay" style={{ background: 'rgba(2, 6, 23, 0.98)', backdropFilter: 'blur(20px)' }}>
+                        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-panel" style={{ maxWidth: '650px', width: '90%', padding: '3.5rem', border: '1px solid rgba(139, 92, 246, 0.4)' }}>
+                            <h3 style={{ fontSize: '2rem', fontWeight: 900, marginBottom: '2.5rem' }}>Marcador en el Mapa</h3>
 
-                            <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '2rem' }}>
-                                {selectedPin.summary}
-                            </p>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                                {!editingLoreId && !newLore.place_pin && (
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginBottom: '0.8rem', textTransform: 'uppercase' }}>Nombre del marcador</label>
+                                        <input
+                                            placeholder="Ej: La Guarida del Dragón..."
+                                            value={pinFormData.title}
+                                            onChange={e => setPinFormData({ ...pinFormData, title: e.target.value })}
+                                            className="glass-input"
+                                            style={{ width: '100%', padding: '1.25rem', background: 'rgba(0,0,0,0.2)', color: 'white' }}
+                                        />
+                                    </div>
+                                )}
 
-                            <div style={{ marginTop: 'auto', display: 'flex', gap: '1rem' }}>
-                                <button className="btn-primary" style={{ flex: 1, fontSize: '0.9rem', justifyContent: 'center', display: 'flex' }}>Ver Nota Completa</button>
-                                <button className="btn-secondary" style={{ padding: '0.75rem' }}><MoreHorizontal size={20} /></button>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginBottom: '1.2rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Selecciona el Icono Visual</label>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '0.75rem' }}>
+                                        {PIN_ICONS.map(i => (
+                                            <button key={i.id} onClick={() => setSelectedPinIcon(i.id)} style={{
+                                                padding: '14px', borderRadius: '15px',
+                                                background: selectedPinIcon === i.id ? '#8b5cf6' : 'rgba(255,255,255,0.03)',
+                                                border: selectedPinIcon === i.id ? '2px solid white' : '1px solid rgba(255,255,255,0.1)',
+                                                cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                                            }}>
+                                                <i.icon size={24} color="white" />
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1.5rem', marginTop: '1.5rem' }}>
+                                    <button className="btn-secondary" onClick={() => setIsPinModalOpen(false)}>Cancelar</button>
+                                    <button className="btn-primary" onClick={confirmPinPlacement} style={{ padding: '1rem 3rem', fontSize: '1rem' }}>Fijar Marcador</button>
+                                </div>
                             </div>
                         </motion.div>
-                    )}
-                </AnimatePresence>
+                    </div>
+                )}
+            </AnimatePresence>
 
+            <ConfirmModal
+                isOpen={isConfirmOpen}
+                onClose={() => setIsConfirmOpen(false)}
+                onConfirm={() => { if (entryToDelete) { deleteEntry(entryToDelete.id); if (currentScope?.id === entryToDelete.id) setCurrentScope(null); } }}
+                title="Borrar del Atlas"
+                message="Esta acción eliminará la entrada y todos sus elementos anidados y pines del mapa. ¿Deseas continuar?"
+            />
+
+            <ConfirmModal
+                isOpen={isCascadeModalOpen}
+                onClose={() => handleUpdateLore(false)}
+                onConfirm={() => handleUpdateLore(true)}
+                title="¿Ocultar contenido anidado?"
+                message={`Estás poniendo "${currentScope?.title}" en privado. ¿Quieres que también se vuelvan privados todos sus lugares, NPCs y notas internas?`}
+                confirmText="Sí, ocultar todo"
+                cancelText="Sólo esta entrada"
+                type="info"
+            />
+            <ConfirmModal
+                isOpen={isDeleteCampaignModalOpen}
+                onClose={() => setIsDeleteCampaignModalOpen(false)}
+                onConfirm={handleDeleteCampaign}
+                title="¿Eliminar Campaña Definitivamente?"
+                message={`Estás a punto de borrar "${campaign?.title}" y TODA su información (Atlas, Mapas, Personajes...). Esta acción es irreversible.`}
+                confirmText="Sí, borrar todo"
+                cancelText="Mantener campaña"
+                type="danger"
+            />
+        </div >
+    );
+}
+
+function TreeItem({ node, depth, expandedNodes, toggleNode, currentScope, setCurrentScope, allPins, getPinIcon, onAddClick, isDM }) {
+    const isExpanded = expandedNodes.has(node.id);
+    const isSelected = currentScope?.id === node.id;
+    const hasChildren = node.children && node.children.length > 0;
+    const pin = allPins.find(p => p.lore_id === node.id);
+    const iconType = node.icon_type || pin?.icon_type || 'book';
+
+    return (
+        <div>
+            <div
+                onClick={() => setCurrentScope(node)}
+                style={{
+                    padding: `12px 1.5rem 12px ${1.5 + depth * 1.5}rem`,
+                    cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: '12px',
+                    background: isSelected ? 'rgba(139, 92, 246, 0.2)' : 'transparent',
+                    color: isSelected ? 'white' : 'rgba(255,255,255,0.45)',
+                    borderLeft: isSelected ? '4px solid #8b5cf6' : '4px solid transparent',
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+                }}
+                onMouseEnter={e => !isSelected && (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
+                onMouseLeave={e => !isSelected && (e.currentTarget.style.background = 'transparent')}
+            >
+                <div onClick={(e) => { e.stopPropagation(); toggleNode(node.id); }} style={{ width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: hasChildren ? 1 : 0.3, background: isExpanded ? 'rgba(139, 92, 246, 0.1)' : 'transparent', borderRadius: '4px' }}>
+                    {isExpanded ? <ChevronDown size={14} style={{ color: '#8b5cf6' }} /> : <ChevronRight size={14} />}
+                </div>
+
+                <div style={{ color: isSelected ? '#8b5cf6' : 'inherit', opacity: isSelected ? 1 : 0.7 }}>
+                    {iconType ? getPinIcon(iconType, 16) : <Book size={16} />}
+                </div>
+
+                <span style={{ fontSize: '0.9rem', fontWeight: isSelected ? 800 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
+                    {node.title}
+                </span>
+
+                {isSelected && isDM && (
+                    <button onClick={(e) => { e.stopPropagation(); onAddClick(); }} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', padding: '4px' }}>
+                        <Plus size={14} />
+                    </button>
+                )}
             </div>
+
+            {isExpanded && hasChildren && (
+                <div style={{ borderLeft: '1px solid rgba(255,255,255,0.05)', marginLeft: `${1.9 + depth * 1.5}rem` }}>
+                    {node.children.map(child => (
+                        <TreeItem
+                            key={child.id}
+                            node={child}
+                            depth={depth + 1}
+                            expandedNodes={expandedNodes}
+                            toggleNode={toggleNode}
+                            currentScope={currentScope}
+                            setCurrentScope={setCurrentScope}
+                            allPins={allPins}
+                            getPinIcon={getPinIcon}
+                            onAddClick={onAddClick}
+                            isDM={isDM}
+                        />
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
 
-// Componente Pin Individual
-function MapPinItem({ pin, scale, onClick, isSelected }) {
-    const [isHovered, setIsHovered] = useState(false);
-
+function HeaderTab({ active, onClick, icon, label }) {
     return (
-        <div
-            className="map-pin"
+        <button
+            onClick={onClick}
             style={{
-                position: 'absolute', top: `${pin.y}%`, left: `${pin.x}%`,
-                transform: `translate(-50%, -100%)`, // Anclar abajo-centro visualmente
-                cursor: 'pointer', zIndex: isSelected ? 50 : 10
+                background: 'none', border: 'none', padding: '1.25rem 1rem', position: 'relative',
+                display: 'flex', alignItems: 'center', gap: '10px', color: active ? 'white' : 'rgba(255,255,255,0.4)',
+                cursor: 'pointer', fontSize: '0.9rem', fontWeight: active ? 900 : 500, transition: 'all 0.3s'
             }}
-            onClick={(e) => { e.stopPropagation(); onClick(); }}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
         >
-            <div style={{
-                transform: `scale(${1 / scale})`, // Contra-escalado mágico: 1/scale mantiene el tamaño visual
-                transformOrigin: 'bottom center',
-                display: 'flex', flexDirection: 'column', alignItems: 'center',
-                transition: 'transform 0.1s'
-            }}>
-                {/* Tooltip */}
-                <AnimatePresence>
-                    {(isHovered || isSelected) && (
-                        <motion.div
-                            initial={{ opacity: 0, y: 10, scale: 0.8 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0 }}
-                            style={{
-                                position: 'absolute', bottom: '100%', marginBottom: '12px',
-                                background: 'rgba(15, 23, 42, 0.95)', border: '1px solid var(--glass-border)',
-                                padding: '8px 12px', borderRadius: '8px',
-                                whiteSpace: 'nowrap', pointerEvents: 'none',
-                                boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
-                                display: 'flex', flexDirection: 'column', gap: '4px'
-                            }}
-                        >
-                            <span style={{ fontWeight: 600 }}>{pin.label}</span>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+            {React.cloneElement(icon, { size: 18, color: active ? '#8b5cf6' : 'currentColor' })}
+            {label}
+            {active && <motion.div layoutId="tab-underline" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '4px', background: '#8b5cf6', borderRadius: '4px 4px 0 0' }} />}
+        </button>
+    );
+}
 
-                {/* Pin Shape */}
-                <motion.div
-                    whileHover={{ scale: 1.2 }}
-                    style={{
-                        width: '40px', height: '40px',
-                        background: pin.type === 'danger' ? '#ef4444' : 'var(--primary)',
-                        borderRadius: '50%',
-                        boxShadow: isSelected
-                            ? `0 0 0 4px white, 0 0 30px ${pin.type === 'danger' ? '#ef4444' : 'var(--primary)'}`
-                            : `0 0 0 2px rgba(255,255,255,0.2), 0 0 20px ${pin.type === 'danger' ? 'rgba(239, 68, 68, 0.5)' : 'rgba(139, 92, 246, 0.5)'}`,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: 'white'
-                    }}
-                >
-                    {pin.type === 'danger' ? <div style={{ width: 10, height: 10, background: 'white', borderRadius: '50%' }} /> : <Pin size={20} fill="white" />}
-                </motion.div>
-
-                {/* Sombra de suelo */}
-                <div style={{
-                    width: '20px', height: '6px', background: 'rgba(0,0,0,0.5)', borderRadius: '50%',
-                    filter: 'blur(2px)', marginTop: '4px'
-                }} />
+function ImageUploadBox({ label, url, isUploading, onFileSelect }) {
+    const fileInputRef = useRef();
+    return (
+        <div style={{ flex: 1 }}>
+            <label style={{ display: 'block', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginBottom: '0.8rem', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.05em' }}>{label}</label>
+            <div onClick={() => fileInputRef.current.click()} style={{ height: '110px', background: 'rgba(255,255,255,0.01)', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden', transition: 'all 0.3s ease' }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = '#8b5cf6', e.currentTarget.style.background = 'rgba(139, 92, 246, 0.02)')}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)', e.currentTarget.style.background = 'rgba(255,255,255,0.01)')}
+            >
+                <input type="file" ref={fileInputRef} onChange={(e) => onFileSelect(e.target.files[0])} hidden accept="image/*" />
+                {isUploading ? <Loader2 size={32} className="animate-spin" color="#8b5cf6" /> : url ? <img src={url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Upload size={32} opacity={0.15} />}
             </div>
         </div>
     );

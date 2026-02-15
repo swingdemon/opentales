@@ -1,101 +1,152 @@
-import React from 'react';
-import { Plus, Users, Globe, MapPin, MoreVertical } from 'lucide-react';
-import { FadeIn } from '../components/ui/FadeIn';
+import React, { useState, useRef } from 'react';
+import { Plus, Users, Calendar, ChevronRight, LayoutGrid, List, Upload, Loader2, X, Image as ImageIcon, Map as MapIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
-
-const dummyCampaigns = [
-    {
-        id: 1,
-        title: 'Ecos de Avaloria',
-        gradient: 'linear-gradient(135deg, #4f46e5 0%, #9333ea 100%)',
-        players: '4/6',
-        system: 'D&D 5e',
-        status: 'Activa'
-    },
-    {
-        id: 2,
-        title: 'La Sombra de Drakenhof',
-        gradient: 'linear-gradient(135deg, #dc2626 0%, #f59e0b 100%)',
-        players: '5/5',
-        system: 'Pathfinder 2e',
-        status: 'Pausada'
-    }
-];
+import { FadeIn } from '../components/ui/FadeIn';
+import { useCampaigns } from '../hooks/useCampaigns';
+import { uploadImage } from '../lib/supabase';
 
 export default function Dashboard() {
+    const { campaigns, loading, createCampaign } = useCampaigns();
+    const [isCreating, setIsCreating] = useState(false);
+    const [newCampaign, setNewCampaign] = useState({ title: '', image_url: '', map_image_url: '' });
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadContext, setUploadContext] = useState(null); // 'cover' or 'map'
+
+    const handleCreate = async () => {
+        if (!newCampaign.title.trim()) return;
+        try {
+            await createCampaign({
+                ...newCampaign,
+                gradient: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+                players: '0 Jugadores',
+                system: 'D&D 5e',
+                status: 'Activa'
+            });
+            setNewCampaign({ title: '', image_url: '', map_image_url: '' });
+            setIsCreating(false);
+        } catch (err) {
+            alert('Error al crear campaña');
+        }
+    };
+
+    const handleFileUpload = async (file, type) => {
+        try {
+            setIsUploading(true);
+            setUploadContext(type);
+            const url = await uploadImage(file);
+            setNewCampaign(prev => ({ ...prev, [type === 'cover' ? 'image_url' : 'map_image_url']: url }));
+        } catch (err) {
+            alert('Error al subir imagen');
+        } finally {
+            setIsUploading(false);
+            setUploadContext(null);
+        }
+    };
+
+    if (loading) return <div className="p-8 color-secondary">Cargando campañas...</div>;
+
     return (
         <div className="container">
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3rem' }}>
                 <div>
-                    <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Mis Campañas</h1>
-                    <p style={{ color: 'var(--text-secondary)' }}>Continúa donde lo dejaste, héroe.</p>
+                    <h1 style={{ fontSize: '2.5rem', fontWeight: 900, marginBottom: '0.5rem', letterSpacing: '-0.03em' }}>
+                        Mis <span className="text-gradient">Campañas</span>
+                    </h1>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>
+                        Bienvenido de nuevo, Maestre. Tus mundos te esperan.
+                    </p>
                 </div>
-                <button className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.5rem' }}>
+                <button
+                    onClick={() => setIsCreating(true)}
+                    className="btn-primary"
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '1rem 2rem', boxShadow: '0 10px 30px rgba(139, 92, 246, 0.3)', borderRadius: '14px', fontWeight: 800 }}
+                >
                     <Plus size={20} /> Nueva Campaña
                 </button>
             </div>
 
-            {/* Grid */}
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
-                gap: '2rem'
-            }}>
-                {dummyCampaigns.map((campaign, index) => (
-                    <FadeIn
-                        key={campaign.id}
-                        delay={index * 0.1}
-                        whileHover={{ y: -8, transition: { duration: 0.3, ease: "easeOut" } }}
-                        style={{ height: '100%' }}
-                    >
-                        <Link to={`/dashboard/campaign/${campaign.id}`} style={{ textDecoration: 'none', height: '100%', display: 'block' }}>
-                            <div className="glass-panel" style={{
-                                overflow: 'hidden',
-                                cursor: 'pointer',
-                                height: '100%',
-                                display: 'flex',
-                                flexDirection: 'column'
-                            }}>
-                                {/* Gradient Banner */}
-                                <div style={{ height: '180px', width: '100%', position: 'relative', background: campaign.gradient }}>
-                                    <div style={{
-                                        position: 'absolute',
-                                        top: '1rem',
-                                        right: '1rem',
-                                        background: 'rgba(0,0,0,0.3)',
-                                        backdropFilter: 'blur(8px)',
-                                        padding: '4px 8px',
-                                        borderRadius: '6px',
-                                        fontSize: '0.75rem',
-                                        fontWeight: 600,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '4px',
-                                        color: 'white'
-                                    }}>
-                                        <span style={{
-                                            width: '6px',
-                                            height: '6px',
-                                            borderRadius: '50%',
-                                            background: campaign.status === 'Activa' ? '#4ade80' : '#f59e0b',
-                                            boxShadow: campaign.status === 'Activa' ? '0 0 8px #4ade80' : 'none'
-                                        }} />
-                                        {campaign.status}
-                                    </div>
+            {isCreating && (
+                <div className="glass-panel" style={{ padding: '2.5rem', marginBottom: '3rem', border: '1px solid var(--primary)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                        <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Dando vida a un nuevo mundo</h2>
+                        <button onClick={() => setIsCreating(false)} className="btn-icon"><X size={20} /></button>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                        <input
+                            value={newCampaign.title}
+                            onChange={(e) => setNewCampaign({ ...newCampaign, title: e.target.value })}
+                            placeholder="Título de la campaña..."
+                            className="glass-input"
+                            style={{ padding: '1.25rem', fontSize: '1.1rem' }}
+                        />
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+                            <ImageUploadField
+                                label="Portada de la Campaña"
+                                icon={<ImageIcon size={24} />}
+                                url={newCampaign.image_url}
+                                isUploading={isUploading && uploadContext === 'cover'}
+                                onFileSelect={(f) => handleFileUpload(f, 'cover')}
+                            />
+                            <ImageUploadField
+                                label="Mapa del Mundo (Opcional)"
+                                icon={<MapIcon size={24} />}
+                                url={newCampaign.map_image_url}
+                                isUploading={isUploading && uploadContext === 'map'}
+                                onFileSelect={(f) => handleFileUpload(f, 'map')}
+                            />
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                            <button onClick={() => setIsCreating(false)} className="btn-secondary" style={{ padding: '0.75rem 2rem' }}>Cancelar</button>
+                            <button onClick={handleCreate} className="btn-primary" style={{ padding: '0.75rem 3rem' }}>Crear Campaña</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Campaign Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '2.5rem' }}>
+                {campaigns.map((campaign, index) => (
+                    <FadeIn key={campaign.id} delay={index * 0.1}>
+                        <Link to={`/dashboard/campaign/${campaign.id}`} style={{ textDecoration: 'none' }}>
+                            <div className="campaign-card glass-panel" style={{ overflow: 'hidden', cursor: 'pointer', transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                {/* Visual Header */}
+                                <div style={{ height: '180px', position: 'relative', overflow: 'hidden' }}>
+                                    {campaign.image_url ? (
+                                        <img src={campaign.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    ) : (
+                                        <div style={{ width: '100%', height: '100%', background: campaign.gradient || 'var(--gradient-primary)' }} />
+                                    )}
+                                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.7))' }} />
+                                    <h2 style={{ position: 'absolute', bottom: '1.25rem', left: '1.5rem', fontSize: '1.75rem', fontWeight: 900, color: 'white', textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}>
+                                        {campaign.title}
+                                    </h2>
                                 </div>
 
                                 {/* Content */}
-                                <div style={{ padding: '1.5rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                                    <h3 style={{ fontSize: '1.25rem', marginBottom: '0.25rem', color: 'var(--text-primary)' }}>{campaign.title}</h3>
-                                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>Sistema: {campaign.system}</p>
-
-                                    <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <Users size={16} /> <span>{campaign.players}</span>
+                                <div style={{ padding: '1.5rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                                            <Users size={16} color="var(--primary)" /> {campaign.players}
                                         </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <MapPin size={16} /> <span>3 Mapas</span>
+                                        <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.1em', background: 'rgba(139, 92, 246, 0.1)', padding: '4px 10px', borderRadius: '20px' }}>
+                                            {campaign.system}
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+                                        <Calendar size={16} /> Última sesión: Hoy
+                                    </div>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                        <span style={{ fontSize: '0.9rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700 }}>
+                                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 10px #10b981' }} /> {campaign.status}
+                                        </span>
+                                        <div className="btn-icon" style={{ padding: '0.6rem', background: 'rgba(139, 92, 246, 0.1)', color: 'var(--primary)' }}>
+                                            <ChevronRight size={20} />
                                         </div>
                                     </div>
                                 </div>
@@ -103,40 +154,31 @@ export default function Dashboard() {
                         </Link>
                     </FadeIn>
                 ))}
+            </div>
+        </div>
+    );
+}
 
-                {/* Create Card */}
-                <FadeIn delay={dummyCampaigns.length * 0.1} whileHover={{ scale: 1.02 }} style={{ height: '100%' }}>
-                    <div className="glass-panel" style={{
-                        height: '100%',
-                        minHeight: '340px',
-                        borderStyle: 'dashed',
-                        background: 'transparent',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '1rem',
-                        color: 'var(--text-secondary)',
-                        cursor: 'pointer',
-                        transition: 'all 0.3s'
-                    }}
-                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--accent)'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--glass-border)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
-                    >
-                        <div style={{
-                            width: '64px',
-                            height: '64px',
-                            borderRadius: '50%',
-                            background: 'rgba(255,255,255,0.05)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                        }}>
-                            <Plus size={32} />
-                        </div>
-                        <span style={{ fontWeight: 500 }}>Crear nueva campaña</span>
+function ImageUploadField({ label, icon, url, isUploading, onFileSelect }) {
+    const fileRef = useRef();
+    return (
+        <div style={{ flex: 1 }}>
+            <label style={{ display: 'block', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginBottom: '0.75rem', textTransform: 'uppercase', fontWeight: 800 }}>{label}</label>
+            <div onClick={() => fileRef.current.click()} style={{
+                height: '140px', background: 'rgba(255,255,255,0.01)', border: '2px dashed rgba(255,255,255,0.1)',
+                borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                overflow: 'hidden', transition: 'all 0.3s ease'
+            }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary)'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'}
+            >
+                <input type="file" ref={fileRef} onChange={(e) => onFileSelect(e.target.files[0])} hidden accept="image/*" />
+                {isUploading ? <Loader2 size={32} className="animate-spin" color="var(--primary)" /> : url ? <img src={url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (
+                    <div style={{ textAlign: 'center', opacity: 0.3 }}>
+                        {icon}
+                        <div style={{ fontSize: '0.75rem', marginTop: '0.5rem' }}>Subir Imagen</div>
                     </div>
-                </FadeIn>
+                )}
             </div>
         </div>
     );

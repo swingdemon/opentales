@@ -1,6 +1,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { Map, BookOpen, Users, Smartphone, ChevronRight, Sparkles, Scroll } from 'lucide-react';
+import { AuthProvider } from './contexts/AuthContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
 import LoginPage from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import DashboardLayout from './components/layout/DashboardLayout';
@@ -122,30 +124,38 @@ function FeatureCard({ icon, title, desc }) {
 
 function App() {
   return (
-    <Router>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<LoginPage />} />
+    <AuthProvider>
+      <Router>
+        <Layout>
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<LoginPage />} />
 
-          {/* Campaign Detail Route - Standalone layout for immersion */}
-          <Route path="/dashboard/campaign/:id" element={<CampaignDetail />} />
+            {/* Campaign Detail Route - Standalone layout for immersion */}
+            <Route path="/dashboard/campaign/:id" element={
+              <ProtectedRoute>
+                <CampaignDetail />
+              </ProtectedRoute>
+            } />
 
-          {/* Dashboard Routes with Sidebar */}
-          <Route path="/dashboard/*" element={
-            <DashboardLayout>
-              <Routes>
-                <Route index element={<Dashboard />} />
-                <Route path="campaigns" element={<Dashboard />} />
-                <Route path="characters" element={<CharacterList />} />
-                <Route path="character/:id" element={<CharacterSheet />} />
-                {/* Futuras rutas: wiki, settings, etc. */}
-              </Routes>
-            </DashboardLayout>
-          } />
-        </Routes>
-      </Layout>
-    </Router>
+            {/* Dashboard Routes with Sidebar */}
+            <Route path="/dashboard/*" element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <Routes>
+                    <Route index element={<Dashboard />} />
+                    <Route path="campaigns" element={<Dashboard />} />
+                    <Route path="characters" element={<CharacterList />} />
+                    <Route path="character/:id" element={<CharacterSheet />} />
+                    {/* Futuras rutas: wiki, settings, etc. */}
+                  </Routes>
+                </DashboardLayout>
+              </ProtectedRoute>
+            } />
+          </Routes>
+        </Layout>
+      </Router>
+    </AuthProvider>
   );
 }
 

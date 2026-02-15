@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, Link, Outlet } from 'react-router-dom';
-import { Layout, Map, Users, BookOpen, Settings, Menu, X, Globe, User } from 'lucide-react';
+import { Layout, Map, Users, BookOpen, Settings, Menu, X, Globe, User, LogOut } from 'lucide-react';
 import { FadeIn } from '../ui/FadeIn';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function DashboardLayout({ children }) {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
+    const { user, signOut } = useAuth();
 
     // Responsive Check
     useEffect(() => {
@@ -51,7 +53,7 @@ export default function DashboardLayout({ children }) {
                             OpenTales
                         </span>
                     </Link>
-                    {isMobile && <button onClick={toggleMenu}><X color="var(--text-secondary)" /></button>}
+                    {isMobile && <button onClick={toggleMenu} style={{ background: 'none', border: 'none' }}><X color="var(--text-secondary)" /></button>}
                 </div>
 
                 {/* Nav Links */}
@@ -67,11 +69,19 @@ export default function DashboardLayout({ children }) {
                         <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <User size={20} color="white" />
                         </div>
-                        <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>Aventurero</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {user?.email?.split('@')[0] || 'Aventurero'}
+                            </div>
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Nivel 1</div>
                         </div>
-                        <Settings size={18} color="var(--text-secondary)" style={{ cursor: 'pointer' }} />
+                        <button
+                            onClick={() => signOut()}
+                            style={{ background: 'none', border: 'none', padding: '4px', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center' }}
+                            title="Cerrar Sesión"
+                        >
+                            <LogOut size={18} />
+                        </button>
                     </div>
                 </div>
             </aside>

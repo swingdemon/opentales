@@ -1,21 +1,42 @@
-import { ArrowRight, User, Lock, Chrome, Shield } from 'lucide-react';
-import { useFormik } from 'formik';
-import * as Yup from 'yup';
-import { FadeIn } from '../components/ui/FadeIn';
-
-const LoginSchema = Yup.object().shape({
-    email: Yup.string().email('Email inválido').required('Requerido'),
-    password: Yup.string().min(6, 'Demasiado corta').required('Requerido'),
-});
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { Mail, Lock, User, Sparkles, AlertCircle } from 'lucide-react';
 
 export default function LoginPage() {
-    const formik = useFormik({
-        initialValues: { email: '', password: '' },
-        validationSchema: LoginSchema,
-        onSubmit: (values) => {
-            alert(JSON.stringify(values, null, 2));
-        },
-    });
+    const [isSignUp, setIsSignUp] = useState(false);
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+
+    const { signIn, signUp } = useAuth();
+    const navigate = useNavigate();
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
+        setSuccess('');
+        setLoading(true);
+
+        try {
+            if (isSignUp) {
+                await signUp(email, password);
+                setSuccess('¡Cuenta creada! Revisa tu email para confirmar tu cuenta.');
+                setEmail('');
+                setPassword('');
+                setTimeout(() => setIsSignUp(false), 3000);
+            } else {
+                await signIn(email, password);
+                navigate('/dashboard');
+            }
+        } catch (err) {
+            setError(err.message || 'Error al autenticar. Verifica tus credenciales.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <div style={{
@@ -23,98 +44,221 @@ export default function LoginPage() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            position: 'relative',
-            overflow: 'hidden'
+            background: 'radial-gradient(circle at 50% 0%, rgba(139, 92, 246, 0.1), transparent 50%)',
+            padding: '2rem'
         }}>
-            {/* Background Orbs */}
-            <div style={{
-                position: 'absolute', top: '20%', left: '20%', width: '300px', height: '300px',
-                background: 'radial-gradient(circle, rgba(139,92,246,0.2) 0%, transparent 70%)',
-                filter: 'blur(40px)', zIndex: 0
-            }} />
-            <div style={{
-                position: 'absolute', bottom: '20%', right: '20%', width: '400px', height: '400px',
-                background: 'radial-gradient(circle, rgba(236,72,153,0.15) 0%, transparent 70%)',
-                filter: 'blur(60px)', zIndex: 0
-            }} />
-
-            <FadeIn className="glass-panel" style={{
+            <div className="glass-panel" style={{
+                maxWidth: '420px',
                 width: '100%',
-                maxWidth: '450px',
-                padding: '3.5rem',
-                margin: '1rem',
-                position: 'relative',
-                zIndex: 10,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '2rem'
+                padding: '2.5rem',
+                position: 'relative'
             }}>
-                <div style={{ textAlign: 'center' }}>
-                    <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Bienvenido</h1>
-                    <p style={{ color: 'var(--text-secondary)' }}>Inicia sesión para continuar tu aventura</p>
+                {/* Header */}
+                <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                    <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        background: 'rgba(139, 92, 246, 0.1)',
+                        padding: '0.5rem 1rem',
+                        borderRadius: '999px',
+                        marginBottom: '1rem',
+                        border: '1px solid rgba(139, 92, 246, 0.2)'
+                    }}>
+                        <Sparkles size={16} color="#a78bfa" />
+                        <span style={{ color: '#a78bfa', fontSize: '0.875rem', fontWeight: 600 }}>
+                            {isSignUp ? 'Únete a la Aventura' : 'Bienvenido de Vuelta'}
+                        </span>
+                    </div>
+
+                    <h1 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '0.5rem' }}>
+                        {isSignUp ? 'Crear Cuenta' : 'Iniciar Sesión'}
+                    </h1>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
+                        {isSignUp
+                            ? 'Comienza a gestionar tus campañas épicas'
+                            : 'Continúa tu leyenda donde la dejaste'}
+                    </p>
                 </div>
 
-                <form onSubmit={formik.handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                {/* Error/Success Messages */}
+                {error && (
+                    <div style={{
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        borderRadius: '8px',
+                        padding: '0.75rem',
+                        marginBottom: '1.5rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        color: '#ef4444'
+                    }}>
+                        <AlertCircle size={18} />
+                        <span style={{ fontSize: '0.9rem' }}>{error}</span>
+                    </div>
+                )}
 
-                    <div style={{ position: 'relative' }}>
-                        <User size={20} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
-                        <input
-                            name="email"
-                            type="email"
-                            placeholder="tu@email.com"
-                            onChange={formik.handleChange}
-                            value={formik.values.email}
-                            style={{
-                                width: '100%',
-                                padding: '1rem 1rem 1rem 3rem',
-                                background: 'rgba(255,255,255,0.03)',
-                                border: '1px solid var(--glass-border)',
-                                borderRadius: '12px',
-                                color: 'white',
-                                fontSize: '1rem',
-                                outline: 'none',
-                                transition: 'border-color 0.2s'
-                            }}
-                        />
-                        {formik.errors.email && formik.touched.email ? (
-                            <div style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.25rem', paddingLeft: '0.5rem' }}>{formik.errors.email}</div>
-                        ) : null}
+                {success && (
+                    <div style={{
+                        background: 'rgba(34, 197, 94, 0.1)',
+                        border: '1px solid rgba(34, 197, 94, 0.3)',
+                        borderRadius: '8px',
+                        padding: '0.75rem',
+                        marginBottom: '1.5rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        color: '#22c55e'
+                    }}>
+                        <Sparkles size={18} />
+                        <span style={{ fontSize: '0.9rem' }}>{success}</span>
+                    </div>
+                )}
+
+                {/* Form */}
+                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    {/* Email Input */}
+                    <div>
+                        <label style={{
+                            display: 'block',
+                            fontSize: '0.875rem',
+                            fontWeight: 600,
+                            marginBottom: '0.5rem',
+                            color: 'var(--text-secondary)'
+                        }}>
+                            Email
+                        </label>
+                        <div style={{ position: 'relative' }}>
+                            <Mail size={18} style={{
+                                position: 'absolute',
+                                left: '1rem',
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                color: 'var(--text-secondary)'
+                            }} />
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="tu@email.com"
+                                required
+                                style={{
+                                    width: '100%',
+                                    padding: '0.75rem 1rem 0.75rem 3rem',
+                                    background: 'rgba(0,0,0,0.2)',
+                                    border: '1px solid var(--glass-border)',
+                                    borderRadius: '8px',
+                                    color: 'white',
+                                    fontSize: '0.95rem',
+                                    outline: 'none',
+                                    transition: 'border-color 0.2s'
+                                }}
+                                onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
+                                onBlur={(e) => e.target.style.borderColor = 'var(--glass-border)'}
+                            />
+                        </div>
                     </div>
 
-                    <div style={{ position: 'relative' }}>
-                        <Lock size={20} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
-                        <input
-                            name="password"
-                            type="password"
-                            placeholder="••••••••"
-                            onChange={formik.handleChange}
-                            value={formik.values.password}
-                            style={{
-                                width: '100%',
-                                padding: '1rem 1rem 1rem 3rem',
-                                background: 'rgba(255,255,255,0.03)',
-                                border: '1px solid var(--glass-border)',
-                                borderRadius: '12px',
-                                color: 'white',
-                                fontSize: '1rem',
-                                outline: 'none'
-                            }}
-                        />
-                        {formik.errors.password && formik.touched.password ? (
-                            <div style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.25rem', paddingLeft: '0.5rem' }}>{formik.errors.password}</div>
-                        ) : null}
+                    {/* Password Input */}
+                    <div>
+                        <label style={{
+                            display: 'block',
+                            fontSize: '0.875rem',
+                            fontWeight: 600,
+                            marginBottom: '0.5rem',
+                            color: 'var(--text-secondary)'
+                        }}>
+                            Contraseña
+                        </label>
+                        <div style={{ position: 'relative' }}>
+                            <Lock size={18} style={{
+                                position: 'absolute',
+                                left: '1rem',
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                color: 'var(--text-secondary)'
+                            }} />
+                            <input
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="••••••••"
+                                required
+                                minLength={6}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.75rem 1rem 0.75rem 3rem',
+                                    background: 'rgba(0,0,0,0.2)',
+                                    border: '1px solid var(--glass-border)',
+                                    borderRadius: '8px',
+                                    color: 'white',
+                                    fontSize: '0.95rem',
+                                    outline: 'none',
+                                    transition: 'border-color 0.2s'
+                                }}
+                                onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
+                                onBlur={(e) => e.target.style.borderColor = 'var(--glass-border)'}
+                            />
+                        </div>
+                        {isSignUp && (
+                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                                Mínimo 6 caracteres
+                            </p>
+                        )}
                     </div>
 
-                    <button type="submit" className="btn-primary" style={{ width: '100%', marginTop: '1rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', padding: '1rem' }}>
-                        Entrar <ArrowRight size={20} />
+                    {/* Submit Button */}
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="btn-primary"
+                        style={{
+                            width: '100%',
+                            padding: '0.875rem',
+                            fontSize: '1rem',
+                            fontWeight: 600,
+                            marginTop: '0.5rem',
+                            opacity: loading ? 0.6 : 1,
+                            cursor: loading ? 'not-allowed' : 'pointer'
+                        }}
+                    >
+                        {loading ? 'Cargando...' : (isSignUp ? 'Crear Cuenta' : 'Entrar')}
                     </button>
                 </form>
 
-                <div style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                    ¿No tienes cuenta? <a href="#" style={{ color: 'var(--primary)', fontWeight: 600 }}>Regístrate</a>
+                {/* Toggle Sign Up / Sign In */}
+                <div style={{
+                    marginTop: '1.5rem',
+                    textAlign: 'center',
+                    paddingTop: '1.5rem',
+                    borderTop: '1px solid var(--glass-border)'
+                }}>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                        {isSignUp ? '¿Ya tienes cuenta?' : '¿No tienes cuenta?'}
+                        {' '}
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setIsSignUp(!isSignUp);
+                                setError('');
+                                setSuccess('');
+                            }}
+                            style={{
+                                color: 'var(--primary)',
+                                fontWeight: 600,
+                                textDecoration: 'none',
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                padding: 0
+                            }}
+                        >
+                            {isSignUp ? 'Inicia sesión' : 'Regístrate'}
+                        </button>
+                    </p>
                 </div>
-
-            </FadeIn>
+            </div>
         </div>
     );
 }

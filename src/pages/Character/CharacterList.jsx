@@ -1,39 +1,64 @@
 import React, { useState } from 'react';
-import { Plus, User, Shield, Sword, Heart, Trash2 } from 'lucide-react';
+import { Plus, User, Shield, Heart, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { FadeIn } from '../../components/ui/FadeIn'; // Ruta relativa
-import { useLocalStorage } from '../../hooks/useLocalStorage';
-
-// Datos por defecto si no hay localStorage
-const defaultCharacters = [
-    { id: 'char_1', name: 'Valenor Stormblade', race: 'Humano', class: 'Paladín', level: 5, hp: 42, maxHp: 42, ac: 18, image: 'https://images.unsplash.com/photo-1599709736413-a4f6d4948a3c?w=400&auto=format&fit=crop&q=60' },
-];
+import { FadeIn } from '../../components/ui/FadeIn';
+import { useCharacters } from '../../hooks/useCharacters';
+import ConfirmModal from '../../components/ui/ConfirmModal';
 
 export default function CharacterList() {
-    const [characters, setCharacters] = useLocalStorage('opentales_characters', defaultCharacters);
+    const { characters, loading, addCharacter, deleteCharacter } = useCharacters();
+    const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+    const [charToDelete, setCharToDelete] = useState(null);
 
-    const createCharacter = () => {
-        const newId = `char_${Date.now()}`;
+    const createCharacter = async () => {
         const newChar = {
-            id: newId,
             name: 'Nuevo Aventurero',
             race: 'Raza Desconocida',
             class: 'Clase Novata',
             level: 1,
             hp: 10,
-            maxHp: 10,
+            max_hp: 10,
             ac: 10,
-            image: null // Placeholder
+            str: 10,
+            dex: 10,
+            con: 10,
+            int: 10,
+            wis: 10,
+            cha: 10,
+            image: null
         };
-        setCharacters([...characters, newChar]);
-    };
 
-    const deleteCharacter = (e, id) => {
-        e.preventDefault(); // Evitar navegación
-        if (window.confirm('¿Seguro que quieres borrar este héroe?')) {
-            setCharacters(characters.filter(c => c.id !== id));
+        try {
+            await addCharacter(newChar);
+        } catch (error) {
+            console.error('Error creating character:', error);
         }
     };
+
+    const openDeleteConfirm = (e, char) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setCharToDelete(char);
+        setIsConfirmOpen(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (charToDelete) {
+            try {
+                await deleteCharacter(charToDelete.id);
+            } catch (error) {
+                console.error('Error deleting character:', error);
+            }
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
+                <div style={{ color: 'var(--text-secondary)' }}>Cargando personajes...</div>
+            </div>
+        );
+    }
 
     return (
         <div className="container">
@@ -77,14 +102,14 @@ export default function CharacterList() {
                                     <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Nvl {char.level} {char.race} {char.class}</p>
 
                                     <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Heart size={14} color="#ef4444" /> {char.hp}/{char.maxHp}</span>
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Heart size={14} color="#ef4444" /> {char.hp}/{char.max_hp}</span>
                                         <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Shield size={14} color="#3b82f6" /> {char.ac} CA</span>
                                     </div>
                                 </div>
 
                                 {/* Delete Action */}
                                 <button
-                                    onClick={(e) => deleteCharacter(e, char.id)}
+                                    onClick={(e) => openDeleteConfirm(e, char)}
                                     style={{
                                         position: 'absolute', top: '0.5rem', right: '0.5rem', padding: '0.5rem',
                                         color: 'var(--text-secondary)', opacity: 0.5, transition: 'opacity 0.2s'
@@ -99,6 +124,19 @@ export default function CharacterList() {
                     </FadeIn>
                 ))}
             </div>
+
+            <ConfirmModal
+                isOpen={isConfirmOpen}
+                onClose={() => {
+                    setIsConfirmOpen(false);
+                    setCharToDelete(null);
+                }}
+                onConfirm={handleConfirmDelete}
+                title="¿Desterrar héroe?"
+                message={`¿Estás seguro de que quieres eliminar a ${charToDelete?.name}? Sus hazañas y equipo se perderán en el olvido.`}
+                confirmText="Confirmar Destierro"
+                cancelText="Mantener Héroe"
+            />
         </div>
     );
 }
