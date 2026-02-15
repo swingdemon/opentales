@@ -277,6 +277,51 @@ export default function CampaignDetail() {
         return <IconComp size={size} />;
     };
 
+    const renderLoreContent = (content) => {
+        if (!content) return 'Sin descripción redactada.';
+
+        // Regex para detectar [[Título de la Entrada]]
+        const parts = content.split(/(\[\[.*?\]\])/g);
+        return parts.map((part, i) => {
+            const match = part.match(/\[\[(.*?)\]\]/);
+            if (match) {
+                const titleToLink = match[1];
+                const targetEntry = entries.find(e => e.title.toLowerCase() === titleToLink.toLowerCase());
+
+                if (targetEntry && (isDM || targetEntry.is_public)) {
+                    return (
+                        <span
+                            key={i}
+                            onClick={() => handleScopeChange(targetEntry)}
+                            style={{
+                                color: '#a78bfa',
+                                cursor: 'pointer',
+                                fontWeight: 700,
+                                borderBottom: '1px dashed rgba(167, 139, 250, 0.4)',
+                                padding: '0 2px',
+                                borderRadius: '4px',
+                                transition: 'all 0.2s',
+                                display: 'inline'
+                            }}
+                            onMouseEnter={e => {
+                                e.currentTarget.style.background = 'rgba(139, 92, 246, 0.1)';
+                                e.currentTarget.style.color = '#c084fc';
+                            }}
+                            onMouseLeave={e => {
+                                e.currentTarget.style.background = 'transparent';
+                                e.currentTarget.style.color = '#a78bfa';
+                            }}
+                        >
+                            {targetEntry.title}
+                        </span>
+                    );
+                }
+                return <span key={i} style={{ opacity: 0.5 }}>{titleToLink}</span>;
+            }
+            return part;
+        });
+    };
+
     if (!campaign) return <div className="p-8">Cargando Atlas...</div>;
 
     return (
@@ -658,7 +703,9 @@ export default function CampaignDetail() {
                                                         </div>
                                                     )}
                                                 </div>
-                                                <p style={{ fontSize: '1.25rem', lineHeight: 1.8, color: 'rgba(255,255,255,0.9)', whiteSpace: 'pre-wrap' }}>{currentScope.content || 'Sin descripción redactada.'}</p>
+                                                <div style={{ fontSize: '1.25rem', lineHeight: 1.8, color: 'rgba(255,255,255,0.9)', whiteSpace: 'pre-wrap' }}>
+                                                    {renderLoreContent(currentScope.content)}
+                                                </div>
                                             </motion.div>
                                         )}
                                     </div>
