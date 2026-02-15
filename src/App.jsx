@@ -63,7 +63,7 @@ function LandingPage() {
       <section className="hero">
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(139, 92, 246, 0.1)', padding: '0.5rem 1rem', borderRadius: '999px', marginBottom: '1.5rem', border: '1px solid rgba(139, 92, 246, 0.2)' }}>
           <Sparkles size={16} color="#a78bfa" />
-          <span style={{ color: '#a78bfa', fontSize: '0.875rem', fontWeight: 600 }}>Nueva Versión Alpha</span>
+          <span style={{ color: '#a78bfa', fontSize: '0.875rem', fontWeight: 600 }}>Iniciativa Sincronizada (v0.2.0)</span>
         </div>
         <h1>
           Crea tu <span className="text-gradient">Legado</span>,<br />
