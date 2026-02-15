@@ -384,12 +384,12 @@ export default function CampaignDetail() {
                                 </button>
                             </div>
                         )}
-                    </motion.aside >
+                    </motion.aside>
                 )}
-            </AnimatePresence >
+            </AnimatePresence>
 
             {/* OVERLAY FOR MOBILE SIDEBAR */}
-            < AnimatePresence >
+            <AnimatePresence>
                 {isSidebarOpen && windowWidth <= 768 && (
                     <motion.div
                         initial={{ opacity: 0 }}
@@ -399,13 +399,13 @@ export default function CampaignDetail() {
                         style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', zIndex: 999 }}
                     />
                 )}
-            </AnimatePresence >
+            </AnimatePresence>
 
             {/* MAIN VIEWPORT */}
-            < main style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#020617' }}>
+            <main style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#020617' }}>
 
                 {/* TOP BAR */}
-                < header style={{ height: '64px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 1rem' }}>
+                <header style={{ height: '64px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 1rem' }}>
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                         <button
                             className="btn-icon mobile-only"
@@ -892,7 +892,7 @@ function TreeItem({ node, depth, expandedNodes, toggleNode, currentScope, setCur
                             expandedNodes={expandedNodes}
                             toggleNode={toggleNode}
                             currentScope={currentScope}
-                            setCurrentScope={handleScopeChange}
+                            setCurrentScope={setCurrentScope}
                             allPins={allPins}
                             getPinIcon={getPinIcon}
                             onAddClick={onAddClick}
