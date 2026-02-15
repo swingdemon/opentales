@@ -443,24 +443,11 @@ export default function CampaignDetail() {
                                                 </div>
                                             </div>
 
-                                            <div>
-                                                <label style={{ display: 'block', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginBottom: '8px', textTransform: 'uppercase' }}>Icono Sugerido</label>
-                                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', maxHeight: '100px', overflowY: 'auto', padding: '8px', background: 'rgba(0,0,0,0.2)', borderRadius: '12px' }}>
-                                                    {PIN_ICONS.map(i => (
-                                                        <button
-                                                            key={i.id}
-                                                            type="button"
-                                                            onClick={() => setNewLore({ ...newLore, icon_type: i.id })}
-                                                            style={{
-                                                                padding: '8px', borderRadius: '8px', background: newLore.icon_type === i.id ? '#8b5cf6' : 'transparent',
-                                                                border: 'none', cursor: 'pointer', transition: 'all 0.2s'
-                                                            }}
-                                                        >
-                                                            <i.icon size={16} color={newLore.icon_type === i.id ? 'white' : 'rgba(255,255,255,0.4)'} />
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
+                                            <IconSelector
+                                                label="Icono Sugerido"
+                                                value={newLore.icon_type}
+                                                onChange={(id) => setNewLore({ ...newLore, icon_type: id })}
+                                            />
                                         </div>
                                         <div style={{ display: 'flex', gap: '1rem' }}>
                                             <button className="btn-secondary" onClick={() => setIsAddingLore(false)}>Descartar</button>
@@ -519,24 +506,11 @@ export default function CampaignDetail() {
                                                     </div>
                                                 </div>
 
-                                                <div style={{ flex: 1 }}>
-                                                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginBottom: '8px', textTransform: 'uppercase' }}>Cambiar Icono</label>
-                                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', maxHeight: '80px', overflowY: 'auto', padding: '8px', background: 'rgba(0,0,0,0.2)', borderRadius: '12px' }}>
-                                                        {PIN_ICONS.map(i => (
-                                                            <button
-                                                                key={i.id}
-                                                                type="button"
-                                                                onClick={() => setEditFormData({ ...editFormData, icon_type: i.id })}
-                                                                style={{
-                                                                    padding: '8px', borderRadius: '8px', background: editFormData.icon_type === i.id ? '#8b5cf6' : 'transparent',
-                                                                    border: 'none', cursor: 'pointer', transition: 'all 0.2s'
-                                                                }}
-                                                            >
-                                                                <i.icon size={16} color={editFormData.icon_type === i.id ? 'white' : 'rgba(255,255,255,0.4)'} />
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                </div>
+                                                <IconSelector
+                                                    label="Cambiar Icono"
+                                                    value={editFormData.icon_type}
+                                                    onChange={(id) => setEditFormData({ ...editFormData, icon_type: id })}
+                                                />
 
                                                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
                                                     <button className="btn-secondary" onClick={() => setEditingLoreId(null)}>Cancelar</button>
@@ -675,21 +649,11 @@ export default function CampaignDetail() {
                                     </div>
                                 )}
 
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginBottom: '1.2rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Selecciona el Icono Visual</label>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '0.75rem' }}>
-                                        {PIN_ICONS.map(i => (
-                                            <button key={i.id} onClick={() => setSelectedPinIcon(i.id)} style={{
-                                                padding: '14px', borderRadius: '15px',
-                                                background: selectedPinIcon === i.id ? '#8b5cf6' : 'rgba(255,255,255,0.03)',
-                                                border: selectedPinIcon === i.id ? '2px solid white' : '1px solid rgba(255,255,255,0.1)',
-                                                cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-                                            }}>
-                                                <i.icon size={24} color="white" />
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
+                                <IconSelector
+                                    label="Selecciona el Icono Visual"
+                                    value={selectedPinIcon}
+                                    onChange={(id) => setSelectedPinIcon(id)}
+                                />
 
                                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1.5rem', marginTop: '1.5rem' }}>
                                     <button className="btn-secondary" onClick={() => setIsPinModalOpen(false)}>Cancelar</button>
@@ -827,6 +791,108 @@ function ImageUploadBox({ label, url, isUploading, onFileSelect }) {
                 <input type="file" ref={fileInputRef} onChange={(e) => onFileSelect(e.target.files[0])} hidden accept="image/*" />
                 {isUploading ? <Loader2 size={32} className="animate-spin" color="#8b5cf6" /> : url ? <img src={url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Upload size={32} opacity={0.15} />}
             </div>
+        </div>
+    );
+}
+
+function IconSelector({ value, onChange, label }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const containerRef = useRef();
+    const currentIcon = PIN_ICONS.find(i => i.id === value) || PIN_ICONS[0];
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (containerRef.current && !containerRef.current.contains(e.target)) setIsOpen(false);
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    return (
+        <div ref={containerRef} style={{ position: 'relative', flex: 1 }}>
+            {label && <label style={{ display: 'block', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</label>}
+            <button
+                type="button"
+                onClick={() => setIsOpen(!isOpen)}
+                style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '12px 16px',
+                    background: 'rgba(255,255,255,0.02)',
+                    border: isOpen ? '1px solid #8b5cf6' : '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '14px',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    boxShadow: isOpen ? '0 0 20px rgba(139, 92, 246, 0.15)' : 'none'
+                }}
+            >
+                <div style={{
+                    width: '32px',
+                    height: '32px',
+                    background: 'rgba(139, 92, 246, 0.15)',
+                    borderRadius: '10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: '1px solid rgba(139, 92, 246, 0.2)'
+                }}>
+                    <currentIcon.icon size={18} color="#a78bfa" />
+                </div>
+                <span style={{ color: 'white', fontSize: '0.9rem', fontWeight: 600, flex: 1, textAlign: 'left' }}>{currentIcon.label}</span>
+                <ChevronDown size={14} style={{ color: 'rgba(255,255,255,0.3)', transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.3s' }} />
+            </button>
+
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        style={{
+                            position: 'absolute',
+                            top: 'calc(100% + 12px)',
+                            left: 0,
+                            right: 0,
+                            background: 'rgba(15, 23, 42, 0.9)',
+                            backdropFilter: 'blur(20px)',
+                            border: '1px solid rgba(139, 92, 246, 0.3)',
+                            borderRadius: '20px',
+                            padding: '12px',
+                            zIndex: 1000,
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(5, 1fr)',
+                            gap: '8px',
+                            boxShadow: '0 20px 40px rgba(0,0,0,0.4)'
+                        }}
+                    >
+                        {PIN_ICONS.map(i => (
+                            <button
+                                key={i.id}
+                                type="button"
+                                onClick={() => { onChange(i.id); setIsOpen(false); }}
+                                style={{
+                                    padding: '10px',
+                                    borderRadius: '12px',
+                                    background: value === i.id ? 'rgba(139, 92, 246, 0.3)' : 'transparent',
+                                    border: value === i.id ? '1px solid rgba(139, 92, 246, 0.5)' : '1px solid transparent',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.background = value === i.id ? 'rgba(139, 92, 246, 0.4)' : 'rgba(255,255,255,0.05)'}
+                                onMouseLeave={e => e.currentTarget.style.background = value === i.id ? 'rgba(139, 92, 246, 0.3)' : 'transparent'}
+                                title={i.label}
+                            >
+                                <i.icon size={20} color={value === i.id ? '#c4b5fd' : 'rgba(255,255,255,0.5)'} />
+                            </button>
+                        ))}
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }
