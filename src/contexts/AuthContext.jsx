@@ -10,9 +10,7 @@ export function AuthProvider({ children }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Si Supabase no está configurado, usar modo "guest"
         if (!isSupabaseConfigured()) {
-            setUser({ id: 'guest', email: 'guest@local' });
             setLoading(false);
             return;
         }
@@ -32,18 +30,21 @@ export function AuthProvider({ children }) {
     }, []);
 
     const signUp = async (email, password) => {
+        if (!isSupabaseConfigured()) throw new Error('Supabase no está configurado. Verifica las variables de entorno.');
         const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
         return data;
     };
 
     const signIn = async (email, password) => {
+        if (!isSupabaseConfigured()) throw new Error('Supabase no está configurado. Verifica las variables de entorno.');
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         return data;
     };
 
     const signOut = async () => {
+        if (!isSupabaseConfigured()) return;
         const { error } = await supabase.auth.signOut();
         if (error) throw error;
     };
