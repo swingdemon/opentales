@@ -1,13 +1,18 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;600;700;800&display=swap');
 
 :root {
-  --bg-color: #020617; /* Slate 950 - Profundidad */
-  --bg-secondary: #0f172a; /* Slate 900 */
+  --bg-color: #020617;
+  /* Slate 950 - Profundidad */
+  --bg-secondary: #0f172a;
+  /* Slate 900 */
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
-  --primary: #8b5cf6; /* Violet 500 */
-  --secondary: #ec4899; /* Pink 500 */
-  --accent: #f59e0b; /* Amber 500 */
+  --primary: #8b5cf6;
+  /* Violet 500 */
+  --secondary: #ec4899;
+  /* Pink 500 */
+  --accent: #f59e0b;
+  /* Amber 500 */
   --glass-bg: rgba(30, 41, 59, 0.4);
   --glass-border: rgba(255, 255, 255, 0.08);
   --font-heading: 'Outfit', sans-serif;
@@ -29,12 +34,17 @@ body {
   overflow-x: hidden;
   min-height: 100vh;
   /* Fondo cósmico sutil */
-  background-image: 
+  background-image:
     radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.15) 0%, transparent 40%),
     radial-gradient(circle at 90% 80%, rgba(236, 72, 153, 0.15) 0%, transparent 40%);
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: var(--font-heading);
   line-height: 1.2;
   font-weight: 700;
@@ -74,7 +84,8 @@ button {
 
 /* Gradient Text */
 .text-gradient {
-  background: linear-gradient(135deg, #a78bfa, #f472b6); /* Violet 400 to Pink 400 */
+  background: linear-gradient(135deg, #a78bfa, #f472b6);
+  /* Violet 400 to Pink 400 */
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -85,7 +96,8 @@ button {
   background: linear-gradient(135deg, var(--primary), var(--secondary));
   color: white;
   padding: 0.75rem 1.5rem;
-  border-radius: 9999px; /* Pill shape */
+  border-radius: 9999px;
+  /* Pill shape */
   font-size: 1rem;
   box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
 }
@@ -206,4 +218,25 @@ button {
 
 .nav-link:hover {
   color: white;
+}
+
+/* Glass Input Utility */
+.glass-input {
+  background: rgba(255, 255, 255, 0.03) !important;
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 12px;
+  color: white !important;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+.glass-input:focus {
+  background: rgba(255, 255, 255, 0.07) !important;
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.15);
+}
+
+.glass-input::placeholder {
+  color: rgba(255, 255, 255, 0.2);
 }

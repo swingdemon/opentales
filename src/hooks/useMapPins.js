@@ -24,7 +24,8 @@ export function useMapPins(campaignId, parentLoreId = null) {
             content,
             is_public,
             image_url,
-            map_image_url
+            map_image_url,
+            icon_type
           )
         `)
                 .eq('campaign_id', campaignId);
@@ -62,7 +63,8 @@ export function useMapPins(campaignId, parentLoreId = null) {
             content,
             is_public,
             image_url,
-            map_image_url
+            map_image_url,
+            icon_type
           )
         `)
                 .single();

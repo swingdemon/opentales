@@ -173,12 +173,12 @@ export default function CampaignDetail() {
 
     const handleCreateLore = async () => {
         if (!newLore.title) return;
-        const { place_pin, icon_type, ...loreData } = newLore;
+        const { place_pin, ...loreData } = newLore;
         const entry = await addEntry(loreData, currentScope?.id || null);
 
         if (place_pin) {
             setPinFormData({ ...newLore, title: entry.title });
-            setSelectedPinIcon(icon_type || 'map-pin');
+            setSelectedPinIcon(newLore.icon_type || 'map-pin');
             setTempPinPos({ x: 50, y: 50 });
             setIsPinModalOpen(true);
         }
@@ -210,11 +210,12 @@ export default function CampaignDetail() {
             }
         }
 
-        const { icon_type: entryIcon, ...updates } = { title, content, is_public, image_url, map_image_url, icon_type };
+        const updates = { title, content, is_public, image_url, map_image_url, icon_type };
         await updateEntry(editingLoreId, updates);
 
         // Sincronizar el icono con el pin del mapa si existe
         await supabase.from('map_pins').update({ icon_type }).eq('lore_id', editingLoreId);
+        loadAllPins();
 
 
         if (forceCascade) {
@@ -241,7 +242,7 @@ export default function CampaignDetail() {
         if (!pinFormData.title) return;
         let entryId = editingLoreId || entries.find(e => e.title === pinFormData.title)?.id;
         if (!entryId) {
-            const entry = await addEntry(pinFormData, currentScope?.id || null);
+            const entry = await addEntry({ ...pinFormData, icon_type: selectedPinIcon }, currentScope?.id || null);
             entryId = entry.id;
         }
 
@@ -394,7 +395,27 @@ export default function CampaignDetail() {
                                         <h2 style={{ fontSize: '1.8rem', fontWeight: 900 }}>Nueva entrada {currentScope ? `en ${currentScope.title}` : 'Global'}</h2>
                                         <button onClick={() => setIsAddingLore(false)} className="btn-icon"><X size={24} /></button>
                                     </div>
-                                    <input placeholder="Título de la entrada (Lugar, PNJ, Objeto...)" value={newLore.title} onChange={e => setNewLore({ ...newLore, title: e.target.value })} className="glass-input" style={{ width: '100%', marginBottom: '1.5rem', fontSize: '1.2rem', padding: '1rem' }} />
+                                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem' }}>
+                                        <IconSelector
+                                            value={newLore.icon_type}
+                                            onChange={(id) => setNewLore({ ...newLore, icon_type: id })}
+                                        />
+                                        <input
+                                            placeholder="Título de la entrada (Lugar, PNJ, Objeto...)"
+                                            value={newLore.title}
+                                            onChange={e => setNewLore({ ...newLore, title: e.target.value })}
+                                            className="glass-input"
+                                            style={{
+                                                flex: 1,
+                                                fontSize: '1.2rem',
+                                                padding: '12px 20px',
+                                                background: 'rgba(255,255,255,0.03)',
+                                                color: 'white',
+                                                border: '1px solid rgba(255,255,255,0.1)',
+                                                borderRadius: '14px'
+                                            }}
+                                        />
+                                    </div>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
                                         <ImageUploadBox label="Imagen de Arte / PNJ" url={newLore.image_url} isUploading={isUploading} onFileSelect={(f) => handleFileUpload(f, 'new', 'image_url')} />
                                         <ImageUploadBox label="Mapa de Localización (opcional)" url={newLore.map_image_url} isUploading={isUploading} onFileSelect={(f) => handleFileUpload(f, 'new', 'map_image_url')} />
@@ -443,11 +464,6 @@ export default function CampaignDetail() {
                                                 </div>
                                             </div>
 
-                                            <IconSelector
-                                                label="Icono Sugerido"
-                                                value={newLore.icon_type}
-                                                onChange={(id) => setNewLore({ ...newLore, icon_type: id })}
-                                            />
                                         </div>
                                         <div style={{ display: 'flex', gap: '1rem' }}>
                                             <button className="btn-secondary" onClick={() => setIsAddingLore(false)}>Descartar</button>
@@ -459,7 +475,26 @@ export default function CampaignDetail() {
                                 <div>
                                     {editingLoreId === currentScope.id ? (
                                         <div className="glass-panel" style={{ padding: '3rem', border: '1px solid #8b5cf6' }}>
-                                            <input value={editFormData.title} onChange={e => setEditFormData({ ...editFormData, title: e.target.value })} className="glass-input" style={{ width: '100%', fontSize: '1.5rem', marginBottom: '1.5rem', padding: '1rem' }} />
+                                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem' }}>
+                                                <IconSelector
+                                                    value={editFormData.icon_type}
+                                                    onChange={(id) => setEditFormData({ ...editFormData, icon_type: id })}
+                                                />
+                                                <input
+                                                    value={editFormData.title}
+                                                    onChange={e => setEditFormData({ ...editFormData, title: e.target.value })}
+                                                    className="glass-input"
+                                                    style={{
+                                                        flex: 1,
+                                                        fontSize: '1.5rem',
+                                                        padding: '12px 20px',
+                                                        background: 'rgba(255,255,255,0.03)',
+                                                        color: 'white',
+                                                        border: '1px solid rgba(255,255,255,0.1)',
+                                                        borderRadius: '14px'
+                                                    }}
+                                                />
+                                            </div>
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
                                                 <ImageUploadBox label="Imagen Ilustrativa" url={editFormData.image_url} isUploading={isUploading} onFileSelect={(f) => handleFileUpload(f, 'edit', 'image_url')} />
                                                 <ImageUploadBox label="Mapa Interno" url={editFormData.map_image_url} isUploading={isUploading} onFileSelect={(f) => handleFileUpload(f, 'edit', 'map_image_url')} />
@@ -506,11 +541,6 @@ export default function CampaignDetail() {
                                                     </div>
                                                 </div>
 
-                                                <IconSelector
-                                                    label="Cambiar Icono"
-                                                    value={editFormData.icon_type}
-                                                    onChange={(id) => setEditFormData({ ...editFormData, icon_type: id })}
-                                                />
 
                                                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
                                                     <button className="btn-secondary" onClick={() => setEditingLoreId(null)}>Cancelar</button>
@@ -525,6 +555,16 @@ export default function CampaignDetail() {
                                             )}
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                                                    <div style={{
+                                                        width: '64px', height: '64px',
+                                                        background: 'rgba(139, 92, 246, 0.1)',
+                                                        borderRadius: '20px',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        border: '1px solid rgba(139, 92, 246, 0.2)',
+                                                        boxShadow: '0 10px 20px rgba(0,0,0,0.2)'
+                                                    }}>
+                                                        {getPinIcon(currentScope.icon_type || 'book', 32)}
+                                                    </div>
                                                     <h1 style={{ fontSize: '4rem', fontWeight: 900, letterSpacing: '-0.04em' }}>{currentScope.title}</h1>
                                                     {isDM && (
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: currentScope.is_public ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', borderRadius: '20px', border: `1px solid ${currentScope.is_public ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)'}` }}>
@@ -538,7 +578,10 @@ export default function CampaignDetail() {
                                                 {isDM && (
                                                     <div style={{ display: 'flex', gap: '1rem' }}>
                                                         <button
-                                                            onClick={() => { setEditFormData(currentScope); setEditingLoreId(currentScope.id); }}
+                                                            onClick={() => {
+                                                                setEditFormData(currentScope);
+                                                                setEditingLoreId(currentScope.id);
+                                                            }}
                                                             className="btn-icon"
                                                             style={{ background: 'rgba(139, 92, 246, 0.2)', color: '#a78bfa', border: '1px solid rgba(139, 92, 246, 0.3)' }}
                                                         >
@@ -599,24 +642,32 @@ export default function CampaignDetail() {
                                                 onClick={(e) => { e.stopPropagation(); setCurrentScope(pin.lore); setActiveTab('wiki'); }}
                                             >
                                                 <motion.div
-                                                    animate={isTarget ? { scale: [1, 1.3, 1], boxShadow: ['0 0 0px #8b5cf6', '0 0 20px #8b5cf6', '0 0 0px #8b5cf6'] } : {}}
+                                                    animate={isTarget ? { scale: [1, 1.2, 1], boxShadow: ['0 0 0px #8b5cf6', '0 0 20px #8b5cf6', '0 0 0px #8b5cf6'] } : {}}
                                                     transition={isTarget ? { repeat: Infinity, duration: 2 } : {}}
-                                                    whileHover={{ scale: 1.2 }}
+                                                    whileHover={{ scale: 1.15 }}
                                                     style={{
-                                                        padding: '10px', background: isTarget ? '#8b5cf6' : '#0f172a',
-                                                        border: `2px solid ${isTarget ? 'white' : '#8b5cf6'}`,
-                                                        borderRadius: '14px', color: isTarget ? 'white' : '#8b5cf6',
-                                                        boxShadow: '0 10px 30px rgba(0,0,0,0.7)'
+                                                        padding: '12px',
+                                                        background: isTarget ? 'rgba(139, 92, 246, 0.6)' : 'rgba(15, 23, 42, 0.35)',
+                                                        backdropFilter: 'blur(8px)',
+                                                        border: `2px solid ${isTarget ? 'white' : 'rgba(139, 92, 246, 0.5)'}`,
+                                                        borderRadius: '50%',
+                                                        color: 'white',
+                                                        boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center'
                                                     }}
                                                 >
-                                                    {getPinIcon(pin.icon_type, isTarget ? 26 : 22)}
+                                                    {getPinIcon(pin.icon_type, isTarget ? 24 : 20)}
                                                 </motion.div>
                                                 <div style={{
-                                                    position: 'absolute', top: '115%', left: '50%', transform: 'translateX(-50%)',
-                                                    whiteSpace: 'nowrap', fontSize: isTarget ? '0.9rem' : '0.8rem', padding: '5px 12px',
-                                                    background: isTarget ? '#8b5cf6' : 'rgba(15, 23, 42, 0.95)',
-                                                    borderRadius: '8px', fontWeight: 800, border: '1px solid rgba(255,255,255,0.05)',
-                                                    color: 'white', zIndex: 30
+                                                    position: 'absolute', top: '110%', left: '50%', transform: 'translateX(-50%)',
+                                                    whiteSpace: 'nowrap', fontSize: isTarget ? '0.85rem' : '0.75rem', padding: '4px 12px',
+                                                    background: isTarget ? 'rgba(139, 92, 246, 0.8)' : 'rgba(15, 23, 42, 0.4)',
+                                                    backdropFilter: 'blur(4px)',
+                                                    borderRadius: '20px', fontWeight: 700, border: '1px solid rgba(255,255,255,0.1)',
+                                                    color: 'white', zIndex: 30,
+                                                    letterSpacing: '0.02em'
                                                 }}>
                                                     {pin.lore?.title}
                                                 </div>
@@ -701,8 +752,7 @@ function TreeItem({ node, depth, expandedNodes, toggleNode, currentScope, setCur
     const isExpanded = expandedNodes.has(node.id);
     const isSelected = currentScope?.id === node.id;
     const hasChildren = node.children && node.children.length > 0;
-    const pin = allPins.find(p => p.lore_id === node.id);
-    const iconType = node.icon_type || pin?.icon_type || 'book';
+    const iconType = node.icon_type || 'book';
 
     return (
         <div>
@@ -809,23 +859,22 @@ function IconSelector({ value, onChange, label }) {
     }, []);
 
     return (
-        <div ref={containerRef} style={{ position: 'relative', flex: 1 }}>
+        <div ref={containerRef} style={{ position: 'relative' }}>
             {label && <label style={{ display: 'block', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</label>}
             <button
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
                 style={{
-                    width: '100%',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '12px',
-                    padding: '12px 16px',
-                    background: 'rgba(255,255,255,0.02)',
+                    gap: '10px',
+                    padding: '10px 14px',
+                    background: 'rgba(255,255,255,0.03)',
                     border: isOpen ? '1px solid #8b5cf6' : '1px solid rgba(255,255,255,0.1)',
                     borderRadius: '14px',
                     cursor: 'pointer',
                     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    boxShadow: isOpen ? '0 0 20px rgba(139, 92, 246, 0.15)' : 'none'
+                    boxShadow: isOpen ? '0 0 20px rgba(139, 92, 246, 0.2)' : 'none'
                 }}
             >
                 <div style={{
@@ -840,7 +889,6 @@ function IconSelector({ value, onChange, label }) {
                 }}>
                     <currentIcon.icon size={18} color="#a78bfa" />
                 </div>
-                <span style={{ color: 'white', fontSize: '0.9rem', fontWeight: 600, flex: 1, textAlign: 'left' }}>{currentIcon.label}</span>
                 <ChevronDown size={14} style={{ color: 'rgba(255,255,255,0.3)', transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.3s' }} />
             </button>
 
@@ -854,9 +902,9 @@ function IconSelector({ value, onChange, label }) {
                             position: 'absolute',
                             top: 'calc(100% + 12px)',
                             left: 0,
-                            right: 0,
-                            background: 'rgba(15, 23, 42, 0.9)',
-                            backdropFilter: 'blur(20px)',
+                            width: '260px',
+                            background: 'rgba(15, 23, 42, 0.98)',
+                            backdropFilter: 'blur(30px)',
                             border: '1px solid rgba(139, 92, 246, 0.3)',
                             borderRadius: '20px',
                             padding: '12px',
@@ -864,7 +912,7 @@ function IconSelector({ value, onChange, label }) {
                             display: 'grid',
                             gridTemplateColumns: 'repeat(5, 1fr)',
                             gap: '8px',
-                            boxShadow: '0 20px 40px rgba(0,0,0,0.4)'
+                            boxShadow: '0 20px 50px -12px rgba(0,0,0,0.8)'
                         }}
                     >
                         {PIN_ICONS.map(i => (
@@ -873,21 +921,21 @@ function IconSelector({ value, onChange, label }) {
                                 type="button"
                                 onClick={() => { onChange(i.id); setIsOpen(false); }}
                                 style={{
-                                    padding: '10px',
+                                    padding: '12px',
                                     borderRadius: '12px',
-                                    background: value === i.id ? 'rgba(139, 92, 246, 0.3)' : 'transparent',
-                                    border: value === i.id ? '1px solid rgba(139, 92, 246, 0.5)' : '1px solid transparent',
+                                    background: value === i.id ? 'rgba(139, 92, 246, 0.4)' : 'transparent',
+                                    border: 'none',
                                     cursor: 'pointer',
                                     transition: 'all 0.2s',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center'
                                 }}
-                                onMouseEnter={e => e.currentTarget.style.background = value === i.id ? 'rgba(139, 92, 246, 0.4)' : 'rgba(255,255,255,0.05)'}
-                                onMouseLeave={e => e.currentTarget.style.background = value === i.id ? 'rgba(139, 92, 246, 0.3)' : 'transparent'}
+                                onMouseEnter={e => e.currentTarget.style.background = value === i.id ? 'rgba(139, 92, 246, 0.5)' : 'rgba(255,255,255,0.05)'}
+                                onMouseLeave={e => e.currentTarget.style.background = value === i.id ? 'rgba(139, 92, 246, 0.4)' : 'transparent'}
                                 title={i.label}
                             >
-                                <i.icon size={20} color={value === i.id ? '#c4b5fd' : 'rgba(255,255,255,0.5)'} />
+                                <i.icon size={20} color={value === i.id ? 'white' : 'rgba(255,255,255,0.6)'} />
                             </button>
                         ))}
                     </motion.div>
