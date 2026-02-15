@@ -4,7 +4,7 @@ import {
     Plus, Search, Filter, Map as MapIcon, Book, Users,
     Settings, ChevronRight, Eye, EyeOff, Save, X, Edit3, MessageSquare, Trash2, LogOut,
     MapPin, Castle, Home, Trees, Mountain, Beer, Skull, Image as ImageIcon, Check, ChevronLeft,
-    Upload, Loader2, FolderOpen, Info, ChevronDown, Layout, Globe,
+    Upload, Loader2, FolderOpen, Info, ChevronDown, Layout, Globe, Menu,
     Sword, Shield, Scroll, Key, Store, Ghost, Waves, Anchor, Flame, Sparkles, Droplets, Landmark, Compass
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -44,6 +44,7 @@ export default function CampaignDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
+    const mapContainerRef = useRef(null);
     const [campaign, setCampaign] = useState(null);
     const [activeTab, setActiveTab] = useState('wiki');
     const [isDM, setIsDM] = useState(false);
@@ -52,6 +53,8 @@ export default function CampaignDetail() {
     const [currentScope, setCurrentScope] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedNodes, setExpandedNodes] = useState(new Set());
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
     // Data Hooks
     const { entries, loading: loreLoading, addEntry, updateEntry, deleteEntry } = useLore(id);
@@ -112,6 +115,12 @@ export default function CampaignDetail() {
     const [entryToDelete, setEntryToDelete] = useState(null);
 
     useEffect(() => {
+        const handleResize = () => setWindowWidth(window.innerWidth);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    useEffect(() => {
         async function initCampaign() {
             if (!user) return;
             const { data: campaignData } = await supabase.from('campaigns').select('*').eq('id', id).single();
@@ -159,6 +168,11 @@ export default function CampaignDetail() {
         if (newExpanded.has(nodeId)) newExpanded.delete(nodeId);
         else newExpanded.add(nodeId);
         setExpandedNodes(newExpanded);
+    };
+
+    const handleScopeChange = (scope) => {
+        setCurrentScope(scope);
+        if (windowWidth <= 768) setIsSidebarOpen(false);
     };
 
     const handleFileUpload = async (file, context, field) => {
@@ -269,101 +283,147 @@ export default function CampaignDetail() {
         <div style={{ display: 'flex', height: '100vh', background: '#020617', color: 'white', overflow: 'hidden' }}>
 
             {/* SIDEBAR EXPLORER */}
-            <aside style={{ width: '320px', background: '#0f172a', borderRight: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column' }}>
-                <div style={{ padding: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.5rem' }}>
-                        <div style={{
-                            width: '32px', height: '32px',
-                            background: 'rgba(139, 92, 246, 0.15)',
-                            borderRadius: '10px',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            border: '1px solid rgba(139, 92, 246, 0.3)'
-                        }}>
-                            <Globe size={20} color="#8b5cf6" />
-                        </div>
-                        <span style={{ fontWeight: 800, fontSize: '0.9rem', letterSpacing: '2px', color: '#8b5cf6' }}>OPENTALES</span>
-                    </div>
-                    <div style={{ position: 'relative' }}>
-                        <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }} />
-                        <input
-                            placeholder="Buscar en el atlas..."
-                            value={searchQuery}
-                            onChange={e => setSearchQuery(e.target.value)}
-                            style={{
-                                width: '100%',
-                                padding: '10px 12px 10px 38px',
-                                fontSize: '0.85rem',
-                                background: 'rgba(255,255,255,0.03)',
-                                border: '1px solid rgba(255,255,255,0.05)',
-                                borderRadius: '10px',
-                                color: 'white',
-                                outline: 'none',
-                                transition: 'all 0.3s ease'
-                            }}
-                            onFocus={(e) => {
-                                e.target.style.background = 'rgba(255,255,255,0.05)';
-                                e.target.style.borderColor = 'rgba(139, 92, 246, 0.5)';
-                                e.target.style.boxShadow = '0 0 15px rgba(139, 92, 246, 0.1)';
-                            }}
-                            onBlur={(e) => {
-                                e.target.style.background = 'rgba(255,255,255,0.03)';
-                                e.target.style.borderColor = 'rgba(255,255,255,0.05)';
-                                e.target.style.boxShadow = 'none';
-                            }}
-                        />
-                    </div>
-                </div>
-
-                <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 0' }}>
-                    <div
-                        onClick={() => { setCurrentScope(null); setIsAddingLore(false); }}
+            <AnimatePresence>
+                {(isSidebarOpen || window.innerWidth > 768) && (
+                    <motion.aside
+                        initial={{ x: -320 }}
+                        animate={{ x: 0 }}
+                        exit={{ x: -320 }}
+                        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
                         style={{
-                            padding: '10px 1.5rem', cursor: 'pointer',
-                            background: currentScope === null && !isAddingLore ? 'rgba(139, 92, 246, 0.15)' : 'transparent',
-                            display: 'flex', alignItems: 'center', gap: '10px', color: currentScope === null ? 'white' : 'rgba(255,255,255,0.4)',
-                            borderLeft: currentScope === null && !isAddingLore ? '3px solid #8b5cf6' : '3px solid transparent'
+                            width: '320px',
+                            background: '#0f172a',
+                            borderRight: '1px solid rgba(255,255,255,0.05)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            position: windowWidth <= 768 ? 'fixed' : 'relative',
+                            top: 0, left: 0, bottom: 0,
+                            zIndex: 1000,
+                            boxShadow: windowWidth <= 768 ? '20px 0 50px rgba(0,0,0,0.5)' : 'none'
                         }}
                     >
-                        <Layout size={16} /> <span style={{ fontSize: '0.85rem', fontWeight: currentScope === null ? 700 : 500 }}>{campaign.title}</span>
-                    </div>
+                        <div style={{ padding: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.5rem' }}>
+                                <div style={{
+                                    width: '32px', height: '32px',
+                                    background: 'rgba(139, 92, 246, 0.15)',
+                                    borderRadius: '10px',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    border: '1px solid rgba(139, 92, 246, 0.3)'
+                                }}>
+                                    <Globe size={20} color="#8b5cf6" />
+                                </div>
+                                <span style={{ fontWeight: 800, fontSize: '0.9rem', letterSpacing: '2px', color: '#8b5cf6' }}>OPENTALES</span>
+                            </div>
+                            <div style={{ position: 'relative' }}>
+                                <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }} />
+                                <input
+                                    placeholder="Buscar en el atlas..."
+                                    value={searchQuery}
+                                    onChange={e => setSearchQuery(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px 12px 10px 38px',
+                                        fontSize: '0.85rem',
+                                        background: 'rgba(255,255,255,0.03)',
+                                        border: '1px solid rgba(255,255,255,0.05)',
+                                        borderRadius: '10px',
+                                        color: 'white',
+                                        outline: 'none',
+                                        transition: 'all 0.3s ease'
+                                    }}
+                                    onFocus={(e) => {
+                                        e.target.style.background = 'rgba(255,255,255,0.05)';
+                                        e.target.style.borderColor = 'rgba(139, 92, 246, 0.5)';
+                                        e.target.style.boxShadow = '0 0 15px rgba(139, 92, 246, 0.1)';
+                                    }}
+                                    onBlur={(e) => {
+                                        e.target.style.background = 'rgba(255,255,255,0.03)';
+                                        e.target.style.borderColor = 'rgba(255,255,255,0.05)';
+                                        e.target.style.boxShadow = 'none';
+                                    }}
+                                />
+                            </div>
+                        </div>
 
-                    <div style={{ marginTop: '0.5rem' }}>
-                        {treeData.map(node => (
-                            <TreeItem
-                                key={node.id}
-                                node={node}
-                                depth={0}
-                                expandedNodes={expandedNodes}
-                                toggleNode={toggleNode}
-                                currentScope={currentScope}
-                                setCurrentScope={setCurrentScope}
-                                allPins={allPins}
-                                getPinIcon={getPinIcon}
-                                onAddClick={() => setIsAddingLore(true)}
-                                isDM={isDM}
-                            />
-                        ))}
-                    </div>
-                </div>
+                        <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 0' }}>
+                            <div
+                                onClick={() => { handleScopeChange(null); setIsAddingLore(false); }}
+                                style={{
+                                    padding: '10px 1.5rem', cursor: 'pointer',
+                                    background: currentScope === null && !isAddingLore ? 'rgba(139, 92, 246, 0.15)' : 'transparent',
+                                    display: 'flex', alignItems: 'center', gap: '10px', color: currentScope === null ? 'white' : 'rgba(255,255,255,0.4)',
+                                    borderLeft: currentScope === null && !isAddingLore ? '3px solid #8b5cf6' : '3px solid transparent'
+                                }}
+                            >
+                                <Layout size={16} /> <span style={{ fontSize: '0.85rem', fontWeight: currentScope === null ? 700 : 500 }}>{campaign.title}</span>
+                            </div>
 
-                {isDM && (
-                    <div style={{ padding: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                        <button className="btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => { setIsAddingLore(true); setActiveTab('wiki'); setCurrentScope(null); }}>
-                            <Plus size={18} /> Nueva Entrada
-                        </button>
-                    </div>
+                            <div style={{ marginTop: '0.5rem' }}>
+                                {treeData.map(node => (
+                                    <TreeItem
+                                        key={node.id}
+                                        node={node}
+                                        depth={0}
+                                        expandedNodes={expandedNodes}
+                                        toggleNode={toggleNode}
+                                        currentScope={currentScope}
+                                        setCurrentScope={handleScopeChange}
+                                        allPins={allPins}
+                                        getPinIcon={getPinIcon}
+                                        onAddClick={() => setIsAddingLore(true)}
+                                        isDM={isDM}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                        {isDM && (
+                            <div style={{ padding: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                <button className="btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => { setIsAddingLore(true); setActiveTab('wiki'); handleScopeChange(null); }}>
+                                    <Plus size={18} /> Nueva Entrada
+                                </button>
+                            </div>
+                        )}
+                    </motion.aside >
                 )}
-            </aside>
+            </AnimatePresence >
+
+            {/* OVERLAY FOR MOBILE SIDEBAR */}
+            < AnimatePresence >
+                {isSidebarOpen && windowWidth <= 768 && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setIsSidebarOpen(false)}
+                        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', zIndex: 999 }}
+                    />
+                )}
+            </AnimatePresence >
 
             {/* MAIN VIEWPORT */}
-            <main style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#020617' }}>
+            < main style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#020617' }}>
 
                 {/* TOP BAR */}
-                <header style={{ height: '64px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 2rem' }}>
-                    <div style={{ display: 'flex', gap: '1rem' }}>
-                        <HeaderTab active={activeTab === 'wiki'} onClick={() => setActiveTab('wiki')} icon={<Book size={16} />} label="Atlas / Wiki" />
+                < header style={{ height: '64px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 1rem' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <button
+                            className="btn-icon mobile-only"
+                            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                            style={{
+                                display: windowWidth <= 768 ? 'flex' : 'none',
+                                background: 'rgba(139, 92, 246, 0.15)',
+                                color: '#a78bfa',
+                                border: '1px solid rgba(139, 92, 246, 0.3)',
+                                padding: '8px',
+                                borderRadius: '10px'
+                            }}
+                        >
+                            <Menu size={20} />
+                        </button>
+                        <HeaderTab active={activeTab === 'wiki'} onClick={() => setActiveTab('wiki')} icon={<Book size={16} />} label="Atlas" />
                         {hasAvailableMap && (
-                            <HeaderTab active={activeTab === 'map'} onClick={() => setActiveTab('map')} icon={<MapIcon size={16} />} label="Mapa Interactivo" />
+                            <HeaderTab active={activeTab === 'map'} onClick={() => setActiveTab('map')} icon={<MapIcon size={16} />} label="Mapa" />
                         )}
                     </div>
 
@@ -380,245 +440,257 @@ export default function CampaignDetail() {
                         )}
                         <Link to="/dashboard" className="btn-icon" title="Volver al Dashboard"><LogOut size={18} /></Link>
                     </div>
-                </header>
+                </header >
 
                 {/* CONTENT AREA */}
-                <div style={{ flex: 1, overflowY: 'auto' }}>
+                < div style={{ flex: 1, overflowY: 'auto' }}>
 
                     {/* WIKI TAB */}
-                    {activeTab === 'wiki' && (
-                        <div className="fade-in" style={{ maxWidth: '900px', margin: '0 auto', padding: '3rem 2rem' }}>
+                    {
+                        activeTab === 'wiki' && (
+                            <div className="fade-in" style={{ maxWidth: '900px', margin: '0 auto', padding: '3rem 2rem' }}>
 
-                            {isAddingLore ? (
-                                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-panel" style={{ padding: '3rem', border: '1px solid #8b5cf6' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                                        <h2 style={{ fontSize: '1.8rem', fontWeight: 900 }}>Nueva entrada {currentScope ? `en ${currentScope.title}` : 'Global'}</h2>
-                                        <button onClick={() => setIsAddingLore(false)} className="btn-icon"><X size={24} /></button>
-                                    </div>
-                                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem' }}>
-                                        <IconSelector
-                                            value={newLore.icon_type}
-                                            onChange={(id) => setNewLore({ ...newLore, icon_type: id })}
-                                        />
-                                        <input
-                                            placeholder="Título de la entrada (Lugar, PNJ, Objeto...)"
-                                            value={newLore.title}
-                                            onChange={e => setNewLore({ ...newLore, title: e.target.value })}
-                                            className="glass-input"
-                                            style={{
-                                                flex: 1,
-                                                fontSize: '1.2rem',
-                                                padding: '12px 20px',
-                                                background: 'rgba(255,255,255,0.03)',
-                                                color: 'white',
-                                                border: '1px solid rgba(255,255,255,0.1)',
-                                                borderRadius: '14px'
-                                            }}
-                                        />
-                                    </div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
-                                        <ImageUploadBox label="Imagen de Arte / PNJ" url={newLore.image_url} isUploading={isUploading} onFileSelect={(f) => handleFileUpload(f, 'new', 'image_url')} />
-                                        <ImageUploadBox label="Mapa de Localización (opcional)" url={newLore.map_image_url} isUploading={isUploading} onFileSelect={(f) => handleFileUpload(f, 'new', 'map_image_url')} />
-                                    </div>
-                                    <textarea
-                                        placeholder="Describe la historia, rasgos o detalles de este elemento..."
-                                        value={newLore.content}
-                                        onChange={e => setNewLore({ ...newLore, content: e.target.value })}
-                                        className="glass-input"
-                                        style={{
-                                            width: '100%', height: '250px', marginBottom: '2rem', padding: '1.25rem',
-                                            lineHeight: 1.6, background: 'rgba(0,0,0,0.2)', color: 'white'
-                                        }}
-                                    />
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
-                                            <div style={{ marginTop: '0.5rem' }}>
-                                                <label style={{ display: 'block', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Visibilidad Inicial</label>
-                                                <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.3)', padding: '4px', borderRadius: '12px', width: 'fit-content' }}>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setNewLore({ ...newLore, is_public: false })}
-                                                        style={{
-                                                            padding: '8px 16px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px',
-                                                            background: !newLore.is_public ? 'rgba(245, 158, 11, 0.2)' : 'transparent',
-                                                            color: !newLore.is_public ? '#f59e0b' : 'rgba(255,255,255,0.3)',
-                                                            border: !newLore.is_public ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid transparent',
-                                                            cursor: 'pointer'
-                                                        }}
-                                                    >
-                                                        <EyeOff size={14} /> PRIVADO (MASTER)
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setNewLore({ ...newLore, is_public: true })}
-                                                        style={{
-                                                            padding: '8px 16px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px',
-                                                            background: newLore.is_public ? 'rgba(16, 185, 129, 0.2)' : 'transparent',
-                                                            color: newLore.is_public ? '#10b981' : 'rgba(255,255,255,0.3)',
-                                                            border: newLore.is_public ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid transparent',
-                                                            cursor: 'pointer'
-                                                        }}
-                                                    >
-                                                        <Eye size={14} /> PÚBLICO (JUGADORES)
-                                                    </button>
-                                                </div>
-                                            </div>
-
+                                {isAddingLore ? (
+                                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-panel" style={{ padding: '3rem', border: '1px solid #8b5cf6' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                                            <h2 style={{ fontSize: '1.8rem', fontWeight: 900 }}>Nueva entrada {currentScope ? `en ${currentScope.title}` : 'Global'}</h2>
+                                            <button onClick={() => setIsAddingLore(false)} className="btn-icon"><X size={24} /></button>
                                         </div>
-                                        <div style={{ display: 'flex', gap: '1rem' }}>
-                                            <button className="btn-secondary" onClick={() => setIsAddingLore(false)}>Descartar</button>
-                                            <button className="btn-primary" onClick={handleCreateLore} style={{ padding: '0.8rem 2rem' }}>Crear Atlas</button>
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            ) : currentScope ? (
-                                <div>
-                                    {editingLoreId === currentScope.id ? (
-                                        <div className="glass-panel" style={{ padding: '3rem', border: '1px solid #8b5cf6' }}>
-                                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem' }}>
-                                                <IconSelector
-                                                    value={editFormData.icon_type}
-                                                    onChange={(id) => setEditFormData({ ...editFormData, icon_type: id })}
-                                                />
-                                                <input
-                                                    value={editFormData.title}
-                                                    onChange={e => setEditFormData({ ...editFormData, title: e.target.value })}
-                                                    className="glass-input"
-                                                    style={{
-                                                        flex: 1,
-                                                        fontSize: '1.5rem',
-                                                        padding: '12px 20px',
-                                                        background: 'rgba(255,255,255,0.03)',
-                                                        color: 'white',
-                                                        border: '1px solid rgba(255,255,255,0.1)',
-                                                        borderRadius: '14px'
-                                                    }}
-                                                />
-                                            </div>
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
-                                                <ImageUploadBox label="Imagen Ilustrativa" url={editFormData.image_url} isUploading={isUploading} onFileSelect={(f) => handleFileUpload(f, 'edit', 'image_url')} />
-                                                <ImageUploadBox label="Mapa Interno" url={editFormData.map_image_url} isUploading={isUploading} onFileSelect={(f) => handleFileUpload(f, 'edit', 'map_image_url')} />
-                                            </div>
-                                            <textarea
-                                                value={editFormData.content}
-                                                onChange={e => setEditFormData({ ...editFormData, content: e.target.value })}
+                                        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem' }}>
+                                            <IconSelector
+                                                value={newLore.icon_type}
+                                                onChange={(id) => setNewLore({ ...newLore, icon_type: id })}
+                                            />
+                                            <input
+                                                placeholder="Título de la entrada (Lugar, PNJ, Objeto...)"
+                                                value={newLore.title}
+                                                onChange={e => setNewLore({ ...newLore, title: e.target.value })}
                                                 className="glass-input"
                                                 style={{
-                                                    width: '100%', height: '350px', marginBottom: '1.5rem', padding: '1.25rem',
-                                                    lineHeight: 1.6, background: 'rgba(0,0,0,0.2)', color: 'white'
+                                                    flex: 1,
+                                                    fontSize: '1.2rem',
+                                                    padding: '12px 20px',
+                                                    background: 'rgba(255,255,255,0.03)',
+                                                    color: 'white',
+                                                    border: '1px solid rgba(255,255,255,0.1)',
+                                                    borderRadius: '14px'
                                                 }}
                                             />
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', gap: '2rem' }}>
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Estado de Publicación</label>
+                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
+                                            <ImageUploadBox label="Imagen de Arte / PNJ" url={newLore.image_url} isUploading={isUploading} onFileSelect={(f) => handleFileUpload(f, 'new', 'image_url')} />
+                                            <ImageUploadBox label="Mapa de Localización (opcional)" url={newLore.map_image_url} isUploading={isUploading} onFileSelect={(f) => handleFileUpload(f, 'new', 'map_image_url')} />
+                                        </div>
+                                        <textarea
+                                            placeholder="Describe la historia, rasgos o detalles de este elemento..."
+                                            value={newLore.content}
+                                            onChange={e => setNewLore({ ...newLore, content: e.target.value })}
+                                            className="glass-input"
+                                            style={{
+                                                width: '100%', height: '250px', marginBottom: '2rem', padding: '1.25rem',
+                                                lineHeight: 1.6, background: 'rgba(0,0,0,0.2)', color: 'white'
+                                            }}
+                                        />
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
+                                                <div style={{ marginTop: '0.5rem' }}>
+                                                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Visibilidad Inicial</label>
                                                     <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.3)', padding: '4px', borderRadius: '12px', width: 'fit-content' }}>
                                                         <button
                                                             type="button"
-                                                            onClick={() => setEditFormData({ ...editFormData, is_public: false })}
+                                                            onClick={() => setNewLore({ ...newLore, is_public: false })}
                                                             style={{
                                                                 padding: '8px 16px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px',
-                                                                background: !editFormData.is_public ? 'rgba(245, 158, 11, 0.2)' : 'transparent',
-                                                                color: !editFormData.is_public ? '#f59e0b' : 'rgba(255,255,255,0.3)',
-                                                                border: !editFormData.is_public ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid transparent',
+                                                                background: !newLore.is_public ? 'rgba(245, 158, 11, 0.2)' : 'transparent',
+                                                                color: !newLore.is_public ? '#f59e0b' : 'rgba(255,255,255,0.3)',
+                                                                border: !newLore.is_public ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid transparent',
                                                                 cursor: 'pointer'
                                                             }}
                                                         >
-                                                            <EyeOff size={14} /> PRIVADO
+                                                            <EyeOff size={14} /> PRIVADO (MASTER)
                                                         </button>
                                                         <button
                                                             type="button"
-                                                            onClick={() => setEditFormData({ ...editFormData, is_public: true })}
+                                                            onClick={() => setNewLore({ ...newLore, is_public: true })}
                                                             style={{
                                                                 padding: '8px 16px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px',
-                                                                background: editFormData.is_public ? 'rgba(16, 185, 129, 0.2)' : 'transparent',
-                                                                color: editFormData.is_public ? '#10b981' : 'rgba(255,255,255,0.3)',
-                                                                border: editFormData.is_public ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid transparent',
+                                                                background: newLore.is_public ? 'rgba(16, 185, 129, 0.2)' : 'transparent',
+                                                                color: newLore.is_public ? '#10b981' : 'rgba(255,255,255,0.3)',
+                                                                border: newLore.is_public ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid transparent',
                                                                 cursor: 'pointer'
                                                             }}
                                                         >
-                                                            <Eye size={14} /> PÚBLICO
+                                                            <Eye size={14} /> PÚBLICO (JUGADORES)
                                                         </button>
                                                     </div>
                                                 </div>
 
-
-                                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
-                                                    <button className="btn-secondary" onClick={() => setEditingLoreId(null)}>Cancelar</button>
-                                                    <button className="btn-primary" onClick={handleUpdateLore}>Guardar Cambios</button>
-                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '1rem' }}>
+                                                <button className="btn-secondary" onClick={() => setIsAddingLore(false)}>Descartar</button>
+                                                <button className="btn-primary" onClick={handleCreateLore} style={{ padding: '0.8rem 2rem' }}>Crear Atlas</button>
                                             </div>
                                         </div>
-                                    ) : (
-                                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                                            {currentScope.image_url && (
-                                                <img src={currentScope.image_url} style={{ width: '100%', height: '450px', objectFit: 'cover', borderRadius: '32px', marginBottom: '3.5rem', border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 30px 60px rgba(0,0,0,0.6)' }} />
-                                            )}
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                                                    <div style={{
-                                                        width: '64px', height: '64px',
-                                                        background: 'rgba(139, 92, 246, 0.1)',
-                                                        borderRadius: '20px',
-                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                        border: '1px solid rgba(139, 92, 246, 0.2)',
-                                                        boxShadow: '0 10px 20px rgba(0,0,0,0.2)'
-                                                    }}>
-                                                        {getPinIcon(currentScope.icon_type || 'book', 32)}
+                                    </motion.div>
+                                ) : currentScope ? (
+                                    <div>
+                                        {editingLoreId === currentScope.id ? (
+                                            <div className="glass-panel" style={{ padding: '3rem', border: '1px solid #8b5cf6' }}>
+                                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem' }}>
+                                                    <IconSelector
+                                                        value={editFormData.icon_type}
+                                                        onChange={(id) => setEditFormData({ ...editFormData, icon_type: id })}
+                                                    />
+                                                    <input
+                                                        value={editFormData.title}
+                                                        onChange={e => setEditFormData({ ...editFormData, title: e.target.value })}
+                                                        className="glass-input"
+                                                        style={{
+                                                            flex: 1,
+                                                            fontSize: '1.5rem',
+                                                            padding: '12px 20px',
+                                                            background: 'rgba(255,255,255,0.03)',
+                                                            color: 'white',
+                                                            border: '1px solid rgba(255,255,255,0.1)',
+                                                            borderRadius: '14px'
+                                                        }}
+                                                    />
+                                                </div>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
+                                                    <ImageUploadBox label="Imagen Ilustrativa" url={editFormData.image_url} isUploading={isUploading} onFileSelect={(f) => handleFileUpload(f, 'edit', 'image_url')} />
+                                                    <ImageUploadBox label="Mapa Interno" url={editFormData.map_image_url} isUploading={isUploading} onFileSelect={(f) => handleFileUpload(f, 'edit', 'map_image_url')} />
+                                                </div>
+                                                <textarea
+                                                    value={editFormData.content}
+                                                    onChange={e => setEditFormData({ ...editFormData, content: e.target.value })}
+                                                    className="glass-input"
+                                                    style={{
+                                                        width: '100%', height: '350px', marginBottom: '1.5rem', padding: '1.25rem',
+                                                        lineHeight: 1.6, background: 'rgba(0,0,0,0.2)', color: 'white'
+                                                    }}
+                                                />
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', gap: '2rem' }}>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                        <label style={{ display: 'block', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Estado de Publicación</label>
+                                                        <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.3)', padding: '4px', borderRadius: '12px', width: 'fit-content' }}>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setEditFormData({ ...editFormData, is_public: false })}
+                                                                style={{
+                                                                    padding: '8px 16px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px',
+                                                                    background: !editFormData.is_public ? 'rgba(245, 158, 11, 0.2)' : 'transparent',
+                                                                    color: !editFormData.is_public ? '#f59e0b' : 'rgba(255,255,255,0.3)',
+                                                                    border: !editFormData.is_public ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid transparent',
+                                                                    cursor: 'pointer'
+                                                                }}
+                                                            >
+                                                                <EyeOff size={14} /> PRIVADO
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setEditFormData({ ...editFormData, is_public: true })}
+                                                                style={{
+                                                                    padding: '8px 16px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px',
+                                                                    background: editFormData.is_public ? 'rgba(16, 185, 129, 0.2)' : 'transparent',
+                                                                    color: editFormData.is_public ? '#10b981' : 'rgba(255,255,255,0.3)',
+                                                                    border: editFormData.is_public ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid transparent',
+                                                                    cursor: 'pointer'
+                                                                }}
+                                                            >
+                                                                <Eye size={14} /> PÚBLICO
+                                                            </button>
+                                                        </div>
                                                     </div>
-                                                    <h1 style={{ fontSize: '4rem', fontWeight: 900, letterSpacing: '-0.04em' }}>{currentScope.title}</h1>
+
+
+                                                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
+                                                        <button className="btn-secondary" onClick={() => setEditingLoreId(null)}>Cancelar</button>
+                                                        <button className="btn-primary" onClick={handleUpdateLore}>Guardar Cambios</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                                                {currentScope.image_url && (
+                                                    <img src={currentScope.image_url} style={{ width: '100%', height: '450px', objectFit: 'cover', borderRadius: '32px', marginBottom: '3.5rem', border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 30px 60px rgba(0,0,0,0.6)' }} />
+                                                )}
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                                                        <div style={{
+                                                            width: '64px', height: '64px',
+                                                            background: 'rgba(139, 92, 246, 0.1)',
+                                                            borderRadius: '20px',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            border: '1px solid rgba(139, 92, 246, 0.2)',
+                                                            boxShadow: '0 10px 20px rgba(0,0,0,0.2)'
+                                                        }}>
+                                                            {getPinIcon(currentScope.icon_type || 'book', 32)}
+                                                        </div>
+                                                        <h1 style={{ fontSize: '4rem', fontWeight: 900, letterSpacing: '-0.04em' }}>{currentScope.title}</h1>
+                                                        {isDM && (
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: currentScope.is_public ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', borderRadius: '20px', border: `1px solid ${currentScope.is_public ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)'}` }}>
+                                                                {currentScope.is_public ? <Eye size={14} color="#10b981" /> : <EyeOff size={14} color="#f59e0b" />}
+                                                                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: currentScope.is_public ? '#10b981' : '#f59e0b', textTransform: 'uppercase' }}>
+                                                                    {currentScope.is_public ? 'Público' : 'Secreto'}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                     {isDM && (
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: currentScope.is_public ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', borderRadius: '20px', border: `1px solid ${currentScope.is_public ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)'}` }}>
-                                                            {currentScope.is_public ? <Eye size={14} color="#10b981" /> : <EyeOff size={14} color="#f59e0b" />}
-                                                            <span style={{ fontSize: '0.75rem', fontWeight: 800, color: currentScope.is_public ? '#10b981' : '#f59e0b', textTransform: 'uppercase' }}>
-                                                                {currentScope.is_public ? 'Público' : 'Secreto'}
-                                                            </span>
+                                                        <div style={{ display: 'flex', gap: '1rem' }}>
+                                                            <button
+                                                                onClick={() => {
+                                                                    setEditFormData(currentScope);
+                                                                    setEditingLoreId(currentScope.id);
+                                                                }}
+                                                                className="btn-icon"
+                                                                style={{ background: 'rgba(139, 92, 246, 0.2)', color: '#a78bfa', border: '1px solid rgba(139, 92, 246, 0.3)' }}
+                                                            >
+                                                                <Edit3 size={24} />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => { setEntryToDelete(currentScope); setIsConfirmOpen(true); }}
+                                                                className="btn-icon"
+                                                                style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.2)' }}
+                                                            >
+                                                                <Trash2 size={24} />
+                                                            </button>
                                                         </div>
                                                     )}
                                                 </div>
-                                                {isDM && (
-                                                    <div style={{ display: 'flex', gap: '1rem' }}>
-                                                        <button
-                                                            onClick={() => {
-                                                                setEditFormData(currentScope);
-                                                                setEditingLoreId(currentScope.id);
-                                                            }}
-                                                            className="btn-icon"
-                                                            style={{ background: 'rgba(139, 92, 246, 0.2)', color: '#a78bfa', border: '1px solid rgba(139, 92, 246, 0.3)' }}
-                                                        >
-                                                            <Edit3 size={24} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => { setEntryToDelete(currentScope); setIsConfirmOpen(true); }}
-                                                            className="btn-icon"
-                                                            style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.2)' }}
-                                                        >
-                                                            <Trash2 size={24} />
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <p style={{ fontSize: '1.25rem', lineHeight: 1.8, color: 'rgba(255,255,255,0.9)', whiteSpace: 'pre-wrap' }}>{currentScope.content || 'Sin descripción redactada.'}</p>
-                                        </motion.div>
-                                    )}
-                                </div>
-                            ) : (
-                                <div style={{ textAlign: 'center', marginTop: '8rem' }}>
-                                    <div style={{ width: '120px', height: '120px', background: 'rgba(139, 92, 246, 0.05)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 2.5rem' }}>
-                                        <Book size={64} style={{ opacity: 0.15, color: '#8b5cf6' }} />
+                                                <p style={{ fontSize: '1.25rem', lineHeight: 1.8, color: 'rgba(255,255,255,0.9)', whiteSpace: 'pre-wrap' }}>{currentScope.content || 'Sin descripción redactada.'}</p>
+                                            </motion.div>
+                                        )}
                                     </div>
-                                    <h2 style={{ fontSize: '3rem', fontWeight: 900, marginBottom: '1.5rem' }}>Atlas de {campaign.title}</h2>
-                                    <p style={{ color: 'rgba(255,255,255,0.4)', maxWidth: '550px', margin: '0 auto', fontSize: '1.2rem', lineHeight: 1.6 }}>El conocimiento es poder. Navega por el menú de la izquierda para desplegar la historia de este mundo.</p>
-                                </div>
-                            )}
-                        </div>
-                    )}
+                                ) : (
+                                    <div style={{ textAlign: 'center', marginTop: '8rem' }}>
+                                        <div style={{ width: '120px', height: '120px', background: 'rgba(139, 92, 246, 0.05)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 2.5rem' }}>
+                                            <Book size={64} style={{ opacity: 0.15, color: '#8b5cf6' }} />
+                                        </div>
+                                        <h2 style={{ fontSize: '3rem', fontWeight: 900, marginBottom: '1.5rem' }}>Atlas de {campaign.title}</h2>
+                                        <p style={{ color: 'rgba(255,255,255,0.4)', maxWidth: '550px', margin: '0 auto', fontSize: '1.2rem', lineHeight: 1.6 }}>El conocimiento es poder. Navega por el menú de la izquierda para desplegar la historia de este mundo.</p>
+                                    </div>
+                                )}
+                            </div>
+                        )
+                    }
 
                     {/* MAP TAB */}
                     {activeTab === 'map' && (
-                        <div className="fade-in" style={{ height: 'calc(100vh - 64px)', position: 'relative' }}>
-                            <div
-                                onClick={(e) => {
+                        <div
+                            ref={mapContainerRef}
+                            className="fade-in"
+                            style={{ height: 'calc(100vh - 64px)', position: 'relative', overflow: 'hidden' }}
+                        >
+                            <motion.div
+                                drag
+                                dragMomentum={true}
+                                dragConstraints={mapContainerRef}
+                                initial={{ x: 0, y: 0 }}
+                                onDoubleClick={(e) => {
                                     if (!isDM) return;
+                                    // Solo crear pin si el clic es en la superficie del mapa
+                                    if (e.target !== e.currentTarget) return;
                                     const rect = e.currentTarget.getBoundingClientRect();
                                     setTempPinPos({ x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100 });
                                     setPinFormData({ title: '', content: '', is_public: true, image_url: '', map_image_url: '' });
@@ -626,10 +698,15 @@ export default function CampaignDetail() {
                                     setIsPinModalOpen(true);
                                 }}
                                 style={{
-                                    width: '100%', height: '100%',
+                                    width: '200%', height: '200%',
+                                    position: 'absolute',
+                                    top: '-50%', left: '-50%',
                                     background: `url(${mapContext?.map_image_url || campaign.map_image_url || 'https://images.unsplash.com/photo-1580136608260-42d1c49e6a75?auto=format&fit=crop&q=80&w=2000'}) center/cover`,
-                                    cursor: isDM ? 'crosshair' : 'default', backgroundSize: 'cover'
+                                    cursor: isDM ? 'crosshair' : 'grab',
+                                    backgroundSize: 'cover',
+                                    backgroundRepeat: 'no-repeat'
                                 }}
+                                whileTap={{ cursor: 'grabbing' }}
                             >
                                 {pins
                                     .filter(p => isDM || p.lore?.is_public) // FILTRO DE SEGURIDAD PARA PINES
@@ -674,10 +751,16 @@ export default function CampaignDetail() {
                                             </div>
                                         );
                                     })}
+                            </motion.div>
+
+                            {/* MAP CONTROLS HELP */}
+                            <div style={{ position: 'absolute', bottom: '20px', right: '20px', background: 'rgba(15, 23, 42, 0.8)', padding: '8px 16px', borderRadius: '12px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)', pointerEvents: 'none' }}>
+                                Arrastra para explorar • {isDM ? 'Doble clic para marcar' : 'Explora los puntos'}
                             </div>
                         </div>
-                    )}
-                </div>
+                    )
+                    }
+                </div >
             </main >
 
             <AnimatePresence>
@@ -809,7 +892,7 @@ function TreeItem({ node, depth, expandedNodes, toggleNode, currentScope, setCur
                             expandedNodes={expandedNodes}
                             toggleNode={toggleNode}
                             currentScope={currentScope}
-                            setCurrentScope={setCurrentScope}
+                            setCurrentScope={handleScopeChange}
                             allPins={allPins}
                             getPinIcon={getPinIcon}
                             onAddClick={onAddClick}
