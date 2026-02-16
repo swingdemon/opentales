@@ -212,7 +212,7 @@ export default function CampaignDetail() {
 
         setter({
             ...target,
-            content: `${before}[[${entry.title}]] ${after}`
+            content: `${before}@${entry.title} ${after}`
         });
 
         setMentionActive(false);
@@ -326,18 +326,36 @@ export default function CampaignDetail() {
     const renderLoreContent = (content) => {
         if (!content) return 'Sin descripción redactada.';
 
-        // Regex para detectar [[Título de la Entrada]]
-        const parts = content.split(/(\[\[.*?\]\])/g);
-        return parts.map((part, i) => {
-            const match = part.match(/\[\[(.*?)\]\]/);
-            if (match) {
-                const titleToLink = match[1];
-                const targetEntry = entries.find(e => e.title.toLowerCase() === titleToLink.toLowerCase());
+        // Creamos una lista de títulos ordenada por longitud descendente para evitar parciales
+        const sortedEntries = [...entries]
+            .filter(e => (isDM || e.is_public) && e.title) // Asegurarse de que la entrada tiene título y es accesible
+            .sort((a, b) => b.title.length - a.title.length);
 
-                if (targetEntry && (isDM || targetEntry.is_public)) {
-                    return (
+        if (sortedEntries.length === 0) return content;
+
+        // Escapar caracteres especiales para el regex
+        const titlePattern = sortedEntries
+            .map(e => e.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+            .join('|');
+
+        // Regex para detectar "@Título" de forma case-insensitive
+        const regex = new RegExp(`(@(${titlePattern}))`, 'gi');
+
+        const parts = content.split(regex);
+        const result = [];
+
+        for (let i = 0; i < parts.length; i++) {
+            const part = parts[i];
+
+            // Si el texto coincide con el patrón "@Título" (parts[i] es "@Título", parts[i+1] es "Título")
+            if (part && part.startsWith('@') && parts[i + 1]) {
+                const titleToLink = parts[i + 1]; // El título capturado por el segundo grupo del regex
+                const targetEntry = sortedEntries.find(e => e.title.toLowerCase() === titleToLink.toLowerCase());
+
+                if (targetEntry) {
+                    result.push(
                         <span
-                            key={i}
+                            key={`link-${i}`}
                             onClick={() => handleScopeChange(targetEntry)}
                             style={{
                                 color: '#a78bfa',
@@ -367,11 +385,14 @@ export default function CampaignDetail() {
                             <span style={{ fontSize: '0.85em', opacity: 0.5, fontWeight: 400 }}>@</span>{targetEntry.title}
                         </span>
                     );
+                    i++; // Saltamos el grupo de captura del título
+                    continue;
                 }
-                return <span key={i} style={{ opacity: 0.5 }}>{titleToLink}</span>;
             }
-            return part;
-        });
+            // Si no es un match o es texto normal, lo añadimos directamente
+            result.push(part);
+        }
+        return result;
     };
 
     if (!campaign) return <div className="p-8">Cargando Atlas...</div>;
@@ -599,6 +620,8 @@ export default function CampaignDetail() {
                                                     entries={entries}
                                                     onSelect={selectMention}
                                                     isDM={isDM}
+                                                    getPinIcon={getPinIcon}
+                                                    campaignTitle={campaign.title}
                                                 />
                                             )}
                                         </div>
@@ -691,6 +714,8 @@ export default function CampaignDetail() {
                                                             entries={entries}
                                                             onSelect={selectMention}
                                                             isDM={isDM}
+                                                            getPinIcon={getPinIcon}
+                                                            campaignTitle={campaign.title}
                                                             style={{ bottom: '100%', top: 'auto', marginBottom: '10px' }}
                                                         />
                                                     )}
@@ -1033,10 +1058,10 @@ function TreeItem({ node, depth, expandedNodes, toggleNode, currentScope, setCur
     );
 }
 
-function MentionDropdown({ search, entries, onSelect, isDM, style = {} }) {
+function MentionDropdown({ search, entries, onSelect, isDM, getPinIcon, campaignTitle, style = {} }) {
     const filtered = entries
         .filter(e => (isDM || e.is_public) && e.title.toLowerCase().includes(search.toLowerCase()))
-        .sort((a, b) => a.title.length - b.title.length)
+        .sort((a, b) => b.title.length - a.title.length) // Priorizar títulos más largos para mejor coincidencia
         .slice(0, 6);
 
     if (filtered.length === 0) return null;
@@ -1048,7 +1073,7 @@ function MentionDropdown({ search, entries, onSelect, isDM, style = {} }) {
             style={{
                 position: 'absolute',
                 top: '40px', left: '20px',
-                width: '300px',
+                width: '320px',
                 background: 'rgba(15, 23, 42, 0.98)',
                 backdropFilter: 'blur(40px)',
                 border: '1px solid rgba(139, 92, 246, 0.4)',
@@ -1074,48 +1099,54 @@ function MentionDropdown({ search, entries, onSelect, isDM, style = {} }) {
                 <Search size={10} /> Vincular a la historia
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                {filtered.map(entry => (
-                    <button
-                        key={entry.id}
-                        type="button"
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onSelect(entry); }}
-                        style={{
-                            width: '100%',
-                            padding: '12px 14px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '12px',
-                            background: 'transparent',
-                            border: 'none',
-                            borderRadius: '10px',
-                            cursor: 'pointer',
-                            textAlign: 'left',
-                            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
-                        }}
-                        onMouseEnter={e => {
-                            e.currentTarget.style.background = 'rgba(139, 92, 246, 0.15)';
-                            e.currentTarget.style.transform = 'translateX(4px)';
-                        }}
-                        onMouseLeave={e => {
-                            e.currentTarget.style.background = 'transparent';
-                            e.currentTarget.style.transform = 'none';
-                        }}
-                    >
-                        <div style={{
-                            width: '28px', height: '28px',
-                            background: 'rgba(139, 92, 246, 0.1)',
-                            borderRadius: '8px',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            color: '#a78bfa'
-                        }}>
-                            <Book size={14} />
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ color: 'white', fontSize: '0.9rem', fontWeight: 600 }}>{entry.title}</span>
-                            <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.65rem' }}>Entrada del Atlas</span>
-                        </div>
-                    </button>
-                ))}
+                {filtered.map(entry => {
+                    const parent = entries.find(p => p.id === entry.parent_id);
+                    const contextName = parent ? parent.title : campaignTitle;
+
+                    return (
+                        <button
+                            key={entry.id}
+                            type="button"
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onSelect(entry); }}
+                            style={{
+                                width: '100%',
+                                padding: '10px 14px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '12px',
+                                background: 'transparent',
+                                border: 'none',
+                                borderRadius: '10px',
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+                            }}
+                            onMouseEnter={e => {
+                                e.currentTarget.style.background = 'rgba(139, 92, 246, 0.15)';
+                                e.currentTarget.style.transform = 'translateX(4px)';
+                            }}
+                            onMouseLeave={e => {
+                                e.currentTarget.style.background = 'transparent';
+                                e.currentTarget.style.transform = 'none';
+                            }}
+                        >
+                            <div style={{
+                                width: '32px', height: '32px',
+                                background: 'rgba(139, 92, 246, 0.1)',
+                                borderRadius: '10px',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                color: '#a78bfa',
+                                border: '1px solid rgba(139, 92, 246, 0.1)'
+                            }}>
+                                {getPinIcon(entry.icon_type || 'book', 16)}
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                                <span style={{ color: 'white', fontSize: '0.9rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.title}</span>
+                                <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.65rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>En {contextName}</span>
+                            </div>
+                        </button>
+                    );
+                })}
             </div>
         </motion.div>
     );
