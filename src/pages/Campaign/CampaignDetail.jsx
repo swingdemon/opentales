@@ -812,6 +812,55 @@ export default function CampaignDetail() {
                                                 <div style={{ fontSize: '1.25rem', lineHeight: 1.8, color: 'rgba(255,255,255,0.9)', whiteSpace: 'pre-wrap' }}>
                                                     {renderLoreContent(currentScope.content)}
                                                 </div>
+
+                                                {/* SUB-ENTRIES SECTION */}
+                                                {entries.some(e => e.parent_id === currentScope.id && (isDM || e.is_public)) && (
+                                                    <div style={{ marginTop: '5rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '3rem' }}>
+                                                        <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                            <FolderOpen size={18} /> Explorar este lugar
+                                                        </h3>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
+                                                            {entries
+                                                                .filter(e => e.parent_id === currentScope.id && (isDM || e.is_public))
+                                                                .map(child => (
+                                                                    <motion.div
+                                                                        key={child.id}
+                                                                        whileHover={{ y: -5, background: 'rgba(139, 92, 246, 0.1)', borderColor: 'rgba(139, 92, 246, 0.4)' }}
+                                                                        onClick={() => handleScopeChange(child)}
+                                                                        style={{
+                                                                            padding: '1.5rem',
+                                                                            background: 'rgba(255,255,255,0.02)',
+                                                                            borderRadius: '24px',
+                                                                            border: '1px solid rgba(255,255,255,0.05)',
+                                                                            cursor: 'pointer',
+                                                                            transition: 'all 0.3s ease',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            gap: '1.25rem'
+                                                                        }}
+                                                                    >
+                                                                        <div style={{
+                                                                            width: '48px', height: '48px',
+                                                                            background: 'rgba(139, 92, 246, 0.1)',
+                                                                            borderRadius: '14px',
+                                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                            border: '1px solid rgba(139, 92, 246, 0.2)',
+                                                                            color: '#a78bfa'
+                                                                        }}>
+                                                                            {getPinIcon(child.icon_type || 'book', 24)}
+                                                                        </div>
+                                                                        <div style={{ flex: 1, overflow: 'hidden' }}>
+                                                                            <h4 style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{child.title}</h4>
+                                                                            <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                                                {child.content || 'Sin descripción redactada...'}
+                                                                            </p>
+                                                                        </div>
+                                                                        <ChevronRight size={18} style={{ opacity: 0.2 }} />
+                                                                    </motion.div>
+                                                                ))}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </motion.div>
                                         )}
                                     </div>
