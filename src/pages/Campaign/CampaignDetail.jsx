@@ -5,7 +5,7 @@ import {
     Settings, ChevronRight, Eye, EyeOff, Save, X, Edit3, MessageSquare, Trash2, LogOut,
     MapPin, Castle, Home, Trees, Mountain, Beer, Skull, Image as ImageIcon, Check, ChevronLeft,
     Upload, Loader2, FolderOpen, Info, ChevronDown, Layout, Globe, Menu,
-    Sword, Shield, Scroll, Key, Store, Ghost, Waves, Anchor, Flame, Sparkles, Droplets, Landmark, Compass
+    Sword, Shield, Scroll, Key, Store, Ghost, Waves, Anchor, Flame, Sparkles, Droplets, Landmark, Compass, User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
@@ -126,18 +126,58 @@ export default function CampaignDetail() {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    const [accessStatus, setAccessStatus] = useState('loading'); // 'loading' | 'granted' | 'denied'
+    const [joinStep, setJoinStep] = useState('code'); // 'code' | 'select_character'
+    const [joinCodeInput, setJoinCodeInput] = useState('');
+    const [myCharacters, setMyCharacters] = useState([]);
+
     useEffect(() => {
         async function initCampaign() {
             if (!user) return;
             const { data: campaignData } = await supabase.from('campaigns').select('*').eq('id', id).single();
             if (campaignData) {
                 setCampaign(campaignData);
-                setIsDM(campaignData.user_id === user.id);
+                const isUserDM = campaignData.user_id === user.id;
+                setIsDM(isUserDM);
+
+                if (!isUserDM) {
+                    const { data: chars } = await supabase.from('characters').select('*').eq('user_id', user.id).eq('campaign_id', id);
+                    if (chars && chars.length > 0) {
+                        setAccessStatus('granted');
+                    } else {
+                        setAccessStatus('denied');
+                    }
+                } else {
+                    setAccessStatus('granted');
+                }
             }
             loadAllPins();
         }
         initCampaign();
     }, [id, user]);
+
+    const verifyCode = async () => {
+        if (!campaign || !campaign.invite_code) {
+            alert("Esta campaña no tiene código de invitación.");
+            return;
+        }
+        if (joinCodeInput.toUpperCase() === campaign.invite_code.toUpperCase()) {
+            const { data } = await supabase.from('characters').select('*').eq('user_id', user.id);
+            setMyCharacters(data || []);
+            setJoinStep('select_character');
+        } else {
+            alert('Código incorrecto');
+        }
+    };
+
+    const linkCharacter = async (charId) => {
+        try {
+            await supabase.from('characters').update({ campaign_id: id }).eq('id', charId);
+            setAccessStatus('granted');
+        } catch (error) {
+            alert("Error al vincular el personaje");
+        }
+    };
 
     const loadAllPins = async () => {
         const { data } = await supabase.from('map_pins').select('lore_id, icon_type').eq('campaign_id', id);
@@ -395,8 +435,79 @@ export default function CampaignDetail() {
         return result;
     };
 
-    if (!campaign) return <div className="p-8">Cargando Atlas...</div>;
+    if (!campaign || accessStatus === 'loading') return <div className="p-8">Cargando Atlas...</div>;
 
+    if (accessStatus === 'denied') {
+        return (
+            <div style={{ display: 'flex', height: '100vh', background: '#020617', color: 'white', alignItems: 'center', justifyContent: 'center' }}>
+                <div className="glass-panel fade-in" style={{ padding: '3rem', maxWidth: '500px', width: '100%', textAlign: 'center', margin: '2rem' }}>
+                    {joinStep === 'code' ? (
+                        <>
+                            <div style={{ width: '64px', height: '64px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', color: '#ef4444' }}>
+                                <Shield size={32} />
+                            </div>
+                            <h2 style={{ fontSize: '1.8rem', fontWeight: 900, marginBottom: '1rem', letterSpacing: '-0.03em' }}>Acceso Denegado</h2>
+                            <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', lineHeight: 1.6 }}>
+                                No tienes un personaje en esta campaña. Ingresa el código secreto de la aventura para poder unirte a ella.
+                            </p>
+                            <input
+                                value={joinCodeInput}
+                                onChange={e => setJoinCodeInput(e.target.value)}
+                                placeholder="EJ: TALES-XYZ"
+                                className="glass-input"
+                                style={{ width: '100%', padding: '1.2rem', fontSize: '1.2rem', textAlign: 'center', marginBottom: '1.5rem', textTransform: 'uppercase', letterSpacing: '4px', fontWeight: 800 }}
+                            />
+                            <div style={{ display: 'flex', gap: '1rem' }}>
+                                <Link to="/dashboard" className="btn-secondary" style={{ flex: 1, padding: '0.8rem', display: 'flex', justifyContent: 'center' }}>Retirarse</Link>
+                                <button onClick={verifyCode} className="btn-primary" style={{ flex: 1, padding: '0.8rem' }}>Acceder</button>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div style={{ width: '64px', height: '64px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', color: '#10b981' }}>
+                                <Users size={32} />
+                            </div>
+                            <h2 style={{ fontSize: '1.8rem', fontWeight: 900, marginBottom: '1rem', letterSpacing: '-0.03em' }}>Elige tu Héroe</h2>
+                            <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>
+                                ¿Con qué personaje quieres adentrarte en {campaign.title}?
+                            </p>
+
+                            {myCharacters.length === 0 ? (
+                                <div>
+                                    <p style={{ color: '#f59e0b', marginBottom: '1.5rem', background: 'rgba(245, 158, 11, 0.1)', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(245, 158, 11, 0.2)' }}>No tienes ningún héroe creado. Ve a tu Dashboard y recluta a un aventurero primero.</p>
+                                    <Link to="/dashboard" className="btn-primary" style={{ display: 'block', padding: '1rem' }}>Ir al Dashboard</Link>
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem', maxHeight: '300px', overflowY: 'auto' }}>
+                                    {myCharacters.map(char => (
+                                        <div
+                                            key={char.id}
+                                            onClick={() => linkCharacter(char.id)}
+                                            style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.02)', borderRadius: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '1rem', border: '1px solid rgba(255,255,255,0.05)', transition: 'all 0.2s' }}
+                                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(139, 92, 246, 0.1)'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+                                        >
+                                            <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                {char.image_url ? <img src={char.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <User size={24} style={{ opacity: 0.5 }} />}
+                                            </div>
+                                            <div style={{ textAlign: 'left', flex: 1 }}>
+                                                <div style={{ fontWeight: 800, fontSize: '1.1rem' }}>{char.name}</div>
+                                                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Nvl {char.level} | {char.race} {char.class}</div>
+                                            </div>
+                                            <ChevronRight size={20} style={{ opacity: 0.5 }} />
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            {myCharacters.length > 0 && (
+                                <Link to="/dashboard" className="btn-secondary" style={{ display: 'block', padding: '1rem' }}>Cancelar y Volver</Link>
+                            )}
+                        </>
+                    )}
+                </div>
+            </div>
+        );
+    }
     return (
         <div style={{ display: 'flex', height: '100vh', background: '#020617', color: 'white', overflow: 'hidden' }}>
 
