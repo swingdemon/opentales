@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Plus, Users, Calendar, ChevronRight, LayoutGrid, List, Upload, Loader2, X, Image as ImageIcon, Map as MapIcon, Shield, Key } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FadeIn } from '../components/ui/FadeIn';
@@ -13,6 +13,15 @@ export default function Dashboard() {
     const [uploadContext, setUploadContext] = useState(null); // 'cover' or 'map'
     const [isJoinOpen, setIsJoinOpen] = useState(false);
     const [joinCode, setJoinCode] = useState('');
+    const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+
+    useEffect(() => {
+        const handleResize = () => setWindowWidth(window.innerWidth);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    const isMobile = windowWidth < 640;
 
     const handleCreate = async () => {
         if (!newCampaign.title.trim()) return;
@@ -83,29 +92,33 @@ export default function Dashboard() {
     return (
         <div className="container">
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: '3rem', gap: '1rem', flexWrap: 'wrap' }}>
                 <div>
-                    <h1 style={{ fontSize: '2.5rem', fontWeight: 900, marginBottom: '0.5rem', letterSpacing: '-0.03em' }}>
+                    <h1 style={{ fontSize: isMobile ? '2rem' : '2.5rem', fontWeight: 900, marginBottom: '0.5rem', letterSpacing: '-0.03em' }}>
                         Mis <span className="text-gradient">Campañas</span>
                     </h1>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '1rem' }}>
                         Bienvenido de nuevo, Maestre. Tus mundos te esperan.
                     </p>
                 </div>
-                <div style={{ display: 'flex', gap: '1rem' }}>
+                <div style={{ display: 'flex', gap: '0.75rem', flexShrink: 0 }}>
                     <button
                         onClick={() => setIsJoinOpen(true)}
                         className="btn-secondary"
-                        style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '1rem 2rem', borderRadius: '14px', fontWeight: 800, background: 'rgba(255,255,255,0.05)', color: 'white' }}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: isMobile ? '0.85rem' : '0.85rem 1.75rem', borderRadius: '14px', fontWeight: 800, background: 'rgba(255,255,255,0.05)', color: 'white', minWidth: isMobile ? '48px' : 'auto' }}
+                        title="Unirse a una Mesa"
                     >
-                        <Shield size={20} /> Unirse a una Mesa
+                        <Shield size={20} />
+                        {!isMobile && ' Unirse a una Mesa'}
                     </button>
                     <button
                         onClick={() => setIsCreating(true)}
                         className="btn-primary"
-                        style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '1rem 2rem', boxShadow: '0 10px 30px rgba(139, 92, 246, 0.3)', borderRadius: '14px', fontWeight: 800 }}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: isMobile ? '0.85rem' : '0.85rem 1.75rem', boxShadow: '0 10px 30px rgba(139, 92, 246, 0.3)', borderRadius: '14px', fontWeight: 800, minWidth: isMobile ? '48px' : 'auto' }}
+                        title="Nueva Campaña"
                     >
-                        <Plus size={20} /> Nueva Campaña
+                        <Plus size={20} />
+                        {!isMobile && ' Nueva Campaña'}
                     </button>
                 </div>
             </div>
