@@ -10,7 +10,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLore } from '../../hooks/useLore';
-import { useSessionLogs } from '../../hooks/useSessionLogs';
+import { useSessions } from '../../hooks/useSessions';
 import { useMapPins } from '../../hooks/useMapPins';
 import { supabase, uploadImage } from '../../lib/supabase';
 import ConfirmModal from '../../components/ui/ConfirmModal';
@@ -64,6 +64,12 @@ export default function CampaignDetail() {
 
     // Data Hooks
     const { entries, loading: loreLoading, addEntry, updateEntry, deleteEntry } = useLore(id);
+    const { sessions, createSession, addNote } = useSessions(id);
+
+    // Journal States
+    const [newSessionTitle, setNewSessionTitle] = useState('');
+    const [isCreatingSession, setIsCreatingSession] = useState(false);
+    const [sessionNoteInputs, setSessionNoteInputs] = useState({});
 
     // Map Navigation Logic (Nearest Map Ancestor)
     const mapContext = useMemo(() => {
@@ -658,6 +664,7 @@ export default function CampaignDetail() {
                         {hasAvailableMap && (
                             <HeaderTab active={activeTab === 'map'} onClick={() => setActiveTab('map')} icon={<MapIcon size={16} />} label="Mapa" />
                         )}
+                        <HeaderTab active={activeTab === 'journal'} onClick={() => setActiveTab('journal')} icon={<MessageSquare size={16} />} label="Diario" />
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -1102,6 +1109,229 @@ export default function CampaignDetail() {
                         </div>
                     )
                     }
+
+                    {/* JOURNAL TAB */}
+                    {activeTab === 'journal' && (
+                        <div className="fade-in" style={{ maxWidth: '860px', margin: '0 auto', padding: '3rem 2rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                                <div>
+                                    <h2 style={{ fontSize: '2rem', fontWeight: 900, marginBottom: '0.5rem' }}>
+                                        Diario de <span className="text-gradient">Sesión</span>
+                                    </h2>
+                                    <p style={{ color: 'var(--text-secondary)' }}>Crónicas de la aventura contadas por sus protagonistas.</p>
+                                </div>
+                                {isDM && (
+                                    <button
+                                        className="btn-primary"
+                                        onClick={() => setIsCreatingSession(true)}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                                    >
+                                        <Plus size={18} /> Nueva Sesión
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Form to create new session */}
+                            {isCreatingSession && isDM && (
+                                <div className="glass-panel fade-in" style={{ padding: '2rem', marginBottom: '2rem', border: '1px solid var(--primary)' }}>
+                                    <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '1rem' }}>✨ Iniciar un nuevo capítulo</h3>
+                                    <div style={{ display: 'flex', gap: '1rem' }}>
+                                        <input
+                                            value={newSessionTitle}
+                                            onChange={e => setNewSessionTitle(e.target.value)}
+                                            placeholder="Título de la sesión (ej: Sesión 1 — El Despertar en la Posada)"
+                                            className="glass-input"
+                                            style={{ flex: 1, padding: '1rem', fontSize: '1rem' }}
+                                            autoFocus
+                                            onKeyDown={e => {
+                                                if (e.key === 'Enter' && newSessionTitle.trim()) {
+                                                    createSession(newSessionTitle).then(() => { setNewSessionTitle(''); setIsCreatingSession(false); });
+                                                }
+                                            }}
+                                        />
+                                        <button
+                                            className="btn-primary"
+                                            onClick={async () => {
+                                                if (!newSessionTitle.trim()) return;
+                                                await createSession(newSessionTitle);
+                                                setNewSessionTitle('');
+                                                setIsCreatingSession(false);
+                                            }}
+                                        >
+                                            Empezar
+                                        </button>
+                                        <button className="btn-secondary" onClick={() => setIsCreatingSession(false)}>
+                                            <X size={18} />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Empty state */}
+                            {(!sessions || sessions.length === 0) && !isCreatingSession && (
+                                <div className="glass-panel" style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                    <Scroll size={56} style={{ opacity: 0.2, margin: '0 auto 1.5rem', display: 'block' }} />
+                                    <p style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: '0.5rem', color: 'white' }}>El diario está en blanco</p>
+                                    <p>Las leyendas de esta campaña aún esperan ser escritas.</p>
+                                    {isDM && (
+                                        <button className="btn-primary" style={{ marginTop: '1.5rem' }} onClick={() => setIsCreatingSession(true)}>
+                                            <Plus size={18} /> Abrir la primera sesión
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Sessions list */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+                                {sessions?.map((session, si) => (
+                                    <motion.div
+                                        key={session.id}
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: si * 0.05 }}
+                                        className="glass-panel"
+                                        style={{ padding: '2rem', border: '1px solid rgba(255,255,255,0.06)' }}
+                                    >
+                                        {/* Session header */}
+                                        <div style={{
+                                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                            paddingBottom: '1.25rem', marginBottom: '1.5rem',
+                                            borderBottom: '1px solid rgba(255,255,255,0.06)'
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                                <div style={{
+                                                    width: '36px', height: '36px', borderRadius: '50%',
+                                                    background: 'rgba(139, 92, 246, 0.15)', border: '1px solid rgba(139,92,246,0.3)',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                }}>
+                                                    <Scroll size={18} color="#a78bfa" />
+                                                </div>
+                                                <h3 style={{ fontSize: '1.3rem', fontWeight: 800 }}>{session.title}</h3>
+                                            </div>
+                                            <span style={{
+                                                fontSize: '0.8rem', color: 'var(--text-secondary)',
+                                                background: 'rgba(255,255,255,0.04)', padding: '4px 12px',
+                                                borderRadius: '20px', border: '1px solid rgba(255,255,255,0.06)'
+                                            }}>
+                                                {new Date(session.session_date).toLocaleDateString('es-AR', { year: 'numeric', month: 'long', day: 'numeric' })}
+                                            </span>
+                                        </div>
+
+                                        {/* Notes thread */}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+                                            {session.notes?.length === 0 ? (
+                                                <div style={{
+                                                    color: 'var(--text-secondary)', fontStyle: 'italic',
+                                                    textAlign: 'center', padding: '1.5rem',
+                                                    background: 'rgba(255,255,255,0.02)', borderRadius: '12px'
+                                                }}>
+                                                    Aún no hay crónicas sobre esta sesión. ¡Sé el primero en escribir!
+                                                </div>
+                                            ) : (
+                                                session.notes?.map(note => {
+                                                    const isCharacter = !!note.character;
+                                                    const authorName = isCharacter ? note.character.name : 'Dungeon Master';
+                                                    const avatarUrl = isCharacter ? note.character?.image_url : null;
+                                                    // Generate a stable color based on character name
+                                                    const colors = ['#60a5fa', '#34d399', '#f472b6', '#fbbf24', '#a78bfa', '#fb923c'];
+                                                    const colorIdx = isCharacter
+                                                        ? authorName.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % colors.length
+                                                        : -1;
+                                                    const authorColor = isCharacter ? colors[colorIdx] : '#f87171';
+
+                                                    return (
+                                                        <div key={note.id} style={{
+                                                            display: 'flex', gap: '1rem', alignItems: 'flex-start',
+                                                            background: 'rgba(0,0,0,0.15)', padding: '1.2rem',
+                                                            borderRadius: '14px', borderLeft: `3px solid ${authorColor}`
+                                                        }}>
+                                                            {/* Avatar */}
+                                                            <div style={{
+                                                                width: '40px', height: '40px', borderRadius: '50%',
+                                                                background: `${authorColor}22`, border: `2px solid ${authorColor}55`,
+                                                                overflow: 'hidden', display: 'flex', alignItems: 'center',
+                                                                justifyContent: 'center', flexShrink: 0
+                                                            }}>
+                                                                {avatarUrl
+                                                                    ? <img src={avatarUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                                    : <User size={20} color={authorColor} />
+                                                                }
+                                                            </div>
+                                                            {/* Content */}
+                                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', gap: '1rem' }}>
+                                                                    <strong style={{ color: authorColor, fontSize: '0.95rem' }}>{authorName}</strong>
+                                                                    <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.25)', flexShrink: 0 }}>
+                                                                        {new Date(note.created_at).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                                                    </span>
+                                                                </div>
+                                                                <div style={{ whiteSpace: 'pre-wrap', color: 'rgba(255,255,255,0.88)', lineHeight: 1.7, wordBreak: 'break-word' }}>
+                                                                    {note.content}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })
+                                            )}
+                                        </div>
+
+                                        {/* Add note input */}
+                                        <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                            {/* Author avatar */}
+                                            <div style={{
+                                                width: '40px', height: '40px', borderRadius: '50%', flexShrink: 0,
+                                                background: 'rgba(255,255,255,0.08)', overflow: 'hidden',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                border: `2px solid ${isDM ? 'rgba(248,113,113,0.4)' : 'rgba(96,165,250,0.4)'}`
+                                            }}>
+                                                {myActiveCharacter?.image_url
+                                                    ? <img src={myActiveCharacter.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    : <User size={18} color={isDM ? '#f87171' : '#60a5fa'} />
+                                                }
+                                            </div>
+                                            {/* Textarea + send */}
+                                            <div style={{ flex: 1, display: 'flex', gap: '0.75rem', alignItems: 'flex-end' }}>
+                                                <textarea
+                                                    value={sessionNoteInputs[session.id] || ''}
+                                                    onChange={e => setSessionNoteInputs({ ...sessionNoteInputs, [session.id]: e.target.value })}
+                                                    placeholder={isDM
+                                                        ? 'Añadir crónica como Dungeon Master...'
+                                                        : `Añadir crónica como ${myActiveCharacter?.name || 'tu héroe'}...`
+                                                    }
+                                                    className="glass-input"
+                                                    style={{ flex: 1, minHeight: '70px', padding: '0.9rem 1rem', resize: 'none', fontSize: '0.95rem' }}
+                                                    onKeyDown={async (e) => {
+                                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                                            e.preventDefault();
+                                                            const text = sessionNoteInputs[session.id];
+                                                            if (!text?.trim()) return;
+                                                            await addNote(session.id, text, myActiveCharacter?.id || null);
+                                                            setSessionNoteInputs({ ...sessionNoteInputs, [session.id]: '' });
+                                                        }
+                                                    }}
+                                                />
+                                                <button
+                                                    className="btn-primary"
+                                                    style={{ padding: '0.85rem 1.5rem', alignSelf: 'flex-end', flexShrink: 0 }}
+                                                    onClick={async () => {
+                                                        const text = sessionNoteInputs[session.id];
+                                                        if (!text?.trim()) return;
+                                                        await addNote(session.id, text, myActiveCharacter?.id || null);
+                                                        setSessionNoteInputs({ ...sessionNoteInputs, [session.id]: '' });
+                                                    }}
+                                                >
+                                                    Registrar
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <p style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.2)', marginTop: '0.5rem', textAlign: 'right' }}>
+                                            Enter para enviar · Shift+Enter para nueva línea
+                                        </p>
+                                    </motion.div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div >
             </main >
 
