@@ -546,6 +546,23 @@ export default function CampaignDetail() {
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        {isDM && campaign?.invite_code && (
+                            <div
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '8px',
+                                    background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)',
+                                    padding: '6px 14px', borderRadius: '12px', color: '#10b981', fontWeight: 800, fontSize: '0.85rem',
+                                    cursor: 'pointer'
+                                }}
+                                onClick={() => {
+                                    navigator.clipboard.writeText(campaign.invite_code);
+                                    alert('Código copiado al portapapeles: ' + campaign.invite_code);
+                                }}
+                                title="Click para copiar código de invitación"
+                            >
+                                <Key size={14} /> CÓDIGO: {campaign.invite_code}
+                            </div>
+                        )}
                         {isDM && (
                             <button
                                 onClick={() => setIsDeleteCampaignModalOpen(true)}
