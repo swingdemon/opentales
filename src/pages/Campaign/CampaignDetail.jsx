@@ -498,7 +498,7 @@ export default function CampaignDetail() {
                                             onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
                                         >
                                             <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                {char.image_url ? <img src={char.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <User size={24} style={{ opacity: 0.5 }} />}
+                                                {char.image ? <img src={char.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <User size={24} style={{ opacity: 0.5 }} />}
                                             </div>
                                             <div style={{ textAlign: 'left', flex: 1 }}>
                                                 <div style={{ fontWeight: 800, fontSize: '1.1rem' }}>{char.name}</div>
@@ -688,7 +688,7 @@ export default function CampaignDetail() {
                         {!isDM && myActiveCharacter && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.05)', padding: '4px 12px 4px 4px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.1)' }}>
                                 <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    {myActiveCharacter.image_url ? <img src={myActiveCharacter.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <User size={14} color="var(--text-secondary)" />}
+                                    {myActiveCharacter.image ? <img src={myActiveCharacter.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <User size={14} color="var(--text-secondary)" />}
                                 </div>
                                 <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>Jugando como <strong style={{ color: 'white' }}>{myActiveCharacter.name}</strong></span>
                             </div>
@@ -1231,7 +1231,7 @@ export default function CampaignDetail() {
                                                 session.notes?.map(note => {
                                                     const isCharacter = !!note.character;
                                                     const authorName = isCharacter ? note.character.name : 'Dungeon Master';
-                                                    const avatarUrl = isCharacter ? note.character?.image_url : null;
+                                                    const avatarUrl = isCharacter ? note.character?.image : null;
                                                     // Generate a stable color based on character name
                                                     const colors = ['#60a5fa', '#34d399', '#f472b6', '#fbbf24', '#a78bfa', '#fb923c'];
                                                     const colorIdx = isCharacter
@@ -1284,8 +1284,8 @@ export default function CampaignDetail() {
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                 border: `2px solid ${isDM ? 'rgba(248,113,113,0.4)' : 'rgba(96,165,250,0.4)'}`
                                             }}>
-                                                {myActiveCharacter?.image_url
-                                                    ? <img src={myActiveCharacter.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                {myActiveCharacter?.image
+                                                    ? <img src={myActiveCharacter.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                     : <User size={18} color={isDM ? '#f87171' : '#60a5fa'} />
                                                 }
                                             </div>

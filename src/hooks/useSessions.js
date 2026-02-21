@@ -42,7 +42,7 @@ export function useSessions(campaignId) {
                 .from('session_notes')
                 .select(`
                     id, session_id, user_id, character_id, content, created_at,
-                    character:characters ( name, image_url, class )
+                    character:characters ( name, image, class )
                 `)
                 .in('session_id', sessionIds)
                 .order('created_at', { ascending: true });
@@ -95,7 +95,7 @@ export function useSessions(campaignId) {
                 }])
                 .select(`
                     id, session_id, user_id, character_id, content, created_at,
-                    character:characters ( name, image_url, class )
+                    character:characters ( name, image, class )
                 `)
                 .single();
 
