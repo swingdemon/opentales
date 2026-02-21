@@ -1,9 +1,9 @@
 import React, { useState, useRef } from 'react';
 import { Plus, Users, Calendar, ChevronRight, LayoutGrid, List, Upload, Loader2, X, Image as ImageIcon, Map as MapIcon, Shield, Key } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { FadeIn } from '../components/ui/FadeIn';
 import { useCampaigns } from '../hooks/useCampaigns';
-import { uploadImage } from '../lib/supabase';
+import { uploadImage, supabase } from '../lib/supabase';
 
 export default function Dashboard() {
     const { campaigns, loading, createCampaign } = useCampaigns();
@@ -36,11 +36,32 @@ export default function Dashboard() {
         }
     };
 
+    const navigate = useNavigate();
+
     const handleJoin = async () => {
         if (!joinCode.trim()) return;
-        alert(`Buscando mesa con el código: ${joinCode.toUpperCase()}\n\n(En breve conectaremos esto con la base de datos)`);
-        setIsJoinOpen(false);
-        setJoinCode('');
+
+        try {
+            const { data, error } = await supabase
+                .from('campaigns')
+                .select('id')
+                .ilike('invite_code', joinCode.trim())
+                .single();
+
+            if (error || !data) {
+                alert('Código de invitación no encontrado o no válido.');
+                return;
+            }
+
+            // Redirigir a la campaña. El CampaignDetail se encarga del resto.
+            navigate(`/dashboard/campaign/${data.id}`);
+        } catch (err) {
+            console.error(err);
+            alert('Error al buscar la mesa.');
+        } finally {
+            setIsJoinOpen(false);
+            setJoinCode('');
+        }
     };
 
     const handleFileUpload = async (file, type) => {
