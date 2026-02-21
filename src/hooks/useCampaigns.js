@@ -29,10 +29,29 @@ export function useCampaigns() {
 
             if (error) throw error;
 
-            // Añadir conteo de jugadores reales
+            // Traer la fecha de la ultima sesion de cada campaña
+            const campaignIds = (data || []).map(c => c.id);
+            let latestSessionMap = {};
+
+            if (campaignIds.length > 0) {
+                const { data: sessions } = await supabase
+                    .from('sessions')
+                    .select('campaign_id, session_date')
+                    .in('campaign_id', campaignIds)
+                    .order('session_date', { ascending: false });
+
+                // Quedarse con la mas reciente por campaña
+                (sessions || []).forEach(s => {
+                    if (!latestSessionMap[s.campaign_id]) {
+                        latestSessionMap[s.campaign_id] = s.session_date;
+                    }
+                });
+            }
+
             const enriched = (data || []).map(c => ({
                 ...c,
-                player_count: c.characters?.[0]?.count ?? 0
+                player_count: c.characters?.[0]?.count ?? 0,
+                last_session_date: latestSessionMap[c.id] ?? null
             }));
 
             setCampaigns(enriched);
@@ -55,7 +74,7 @@ export function useCampaigns() {
                 .single();
 
             if (error) throw error;
-            setCampaigns([data, ...campaigns]);
+            setCampaigns([{ ...data, player_count: 0, last_session_date: null }, ...campaigns]);
             return data;
         } catch (err) {
             console.error('Error creating campaign:', err);
@@ -80,12 +99,33 @@ export function useCampaigns() {
         }
     };
 
+    const updateCampaign = async (id, updates) => {
+        if (!useSupabase) return;
+        try {
+            const { data, error } = await supabase
+                .from('campaigns')
+                .update(updates)
+                .eq('id', id)
+                .select()
+                .single();
+
+            if (error) throw error;
+            setCampaigns(campaigns.map(c => c.id === id ? { ...c, ...data } : c));
+            return data;
+        } catch (err) {
+            console.error('Error updating campaign:', err);
+            setError(err.message);
+            throw err;
+        }
+    };
+
     return {
         campaigns,
         loading,
         error,
         createCampaign,
         getCampaign,
+        updateCampaign,
         refresh: loadCampaigns
     };
 }

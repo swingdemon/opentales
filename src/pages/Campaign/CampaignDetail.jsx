@@ -114,6 +114,8 @@ export default function CampaignDetail() {
     const [isUploading, setIsUploading] = useState(false);
     const [editingLoreId, setEditingLoreId] = useState(null);
     const [editFormData, setEditFormData] = useState({ title: '', content: '', is_public: false, image_url: '', map_image_url: '', icon_type: 'book' });
+    const [isEditingCampaign, setIsEditingCampaign] = useState(false);
+    const [campaignEditData, setCampaignEditData] = useState({ title: '', description: '', image_url: '', map_image_url: '' });
 
     const [isPinModalOpen, setIsPinModalOpen] = useState(false);
     const [tempPinPos, setTempPinPos] = useState({ x: 0, y: 0 });
@@ -305,6 +307,21 @@ export default function CampaignDetail() {
             navigate('/dashboard');
         } catch (err) {
             alert("Error al eliminar la campaña: " + err.message);
+        }
+    };
+
+    const handleUpdateCampaign = async () => {
+        try {
+            const { error } = await supabase
+                .from('campaigns')
+                .update(campaignEditData)
+                .eq('id', id);
+
+            if (error) throw error;
+            setCampaign({ ...campaign, ...campaignEditData });
+            setIsEditingCampaign(false);
+        } catch (err) {
+            alert("Error al actualizar la campaña: " + err.message);
         }
     };
 
@@ -616,13 +633,24 @@ export default function CampaignDetail() {
                                 ))}
                             </div>
                         </div>
-                        {isDM && (
-                            <div style={{ padding: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                            {isDM && (
                                 <button className="btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => { setIsAddingLore(true); setActiveTab('wiki'); handleScopeChange(null); }}>
                                     <Plus size={18} /> Nueva Entrada
                                 </button>
-                            </div>
-                        )}
+                            )}
+                            <Link to="/dashboard" style={{
+                                display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px',
+                                borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)',
+                                color: 'rgba(255,255,255,0.5)', fontSize: '0.85rem', fontWeight: 600, textDecoration: 'none',
+                                transition: 'all 0.2s'
+                            }}
+                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'white' }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.color = 'rgba(255,255,255,0.5)' }}
+                            >
+                                <ChevronLeft size={16} /> Volver al Dashboard
+                            </Link>
+                        </div>
                     </motion.aside>
                 )}
             </AnimatePresence>
@@ -672,38 +700,30 @@ export default function CampaignDetail() {
                             <div
                                 style={{
                                     display: 'flex', alignItems: 'center', gap: '8px',
-                                    background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)',
-                                    padding: '6px 14px', borderRadius: '12px', color: '#10b981', fontWeight: 800, fontSize: '0.85rem',
-                                    cursor: 'pointer'
+                                    background: 'rgba(139, 92, 246, 0.1)', border: '1px solid rgba(139, 92, 246, 0.2)',
+                                    padding: '6px 14px', borderRadius: '12px', color: '#a78bfa', fontWeight: 800, fontSize: '0.75rem',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
                                 }}
+                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(139, 92, 246, 0.2)'}
+                                onMouseLeave={e => e.currentTarget.style.background = 'rgba(139, 92, 246, 0.1)'}
                                 onClick={() => {
                                     navigator.clipboard.writeText(campaign.invite_code);
                                     alert('Código copiado al portapapeles: ' + campaign.invite_code);
                                 }}
                                 title="Click para copiar código de invitación"
                             >
-                                <Key size={14} /> CÓDIGO: {campaign.invite_code}
+                                <Key size={12} /> {windowWidth > 640 ? `INVITAR: ${campaign.invite_code}` : campaign.invite_code}
                             </div>
                         )}
                         {!isDM && myActiveCharacter && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.05)', padding: '4px 12px 4px 4px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.03)', padding: '4px 12px 4px 4px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255,255,255,0.1)' }}>
                                     {myActiveCharacter.image ? <img src={myActiveCharacter.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <User size={14} color="var(--text-secondary)" />}
                                 </div>
-                                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>Jugando como <strong style={{ color: 'white' }}>{myActiveCharacter.name}</strong></span>
+                                {windowWidth > 640 && <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Como <strong style={{ color: 'white' }}>{myActiveCharacter.name}</strong></span>}
                             </div>
                         )}
-                        {isDM && (
-                            <button
-                                onClick={() => setIsDeleteCampaignModalOpen(true)}
-                                className="btn-icon"
-                                style={{ color: '#f87171', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)' }}
-                                title="Eliminar campaña"
-                            >
-                                <Trash2 size={18} />
-                            </button>
-                        )}
-                        <Link to="/dashboard" className="btn-icon" title="Volver al Dashboard"><LogOut size={18} /></Link>
                     </div>
                 </header >
 
@@ -1012,12 +1032,63 @@ export default function CampaignDetail() {
                                         )}
                                     </div>
                                 ) : (
-                                    <div style={{ textAlign: 'center', marginTop: '8rem' }}>
-                                        <div style={{ width: '120px', height: '120px', background: 'rgba(139, 92, 246, 0.05)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 2.5rem' }}>
-                                            <Book size={64} style={{ opacity: 0.15, color: '#8b5cf6' }} />
+                                    <div style={{ position: 'relative' }}>
+                                        {/* Hero Banner Section */}
+                                        <div style={{ position: 'relative', height: '500px', width: '100%', overflow: 'hidden', borderRadius: '32px', marginBottom: '3.5rem', border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 30px 60px rgba(0,0,0,0.6)' }}>
+                                            {campaign.image_url ? (
+                                                <img src={campaign.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Campaign Hero" />
+                                            ) : (
+                                                <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <Book size={100} style={{ opacity: 0.1 }} />
+                                                </div>
+                                            )}
+
+                                            {/* Mask Gradient overlay */}
+                                            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 40%, rgba(2, 6, 23, 0.4) 70%, rgba(2, 6, 23, 1) 100%)' }} />
+
+                                            {/* Edit Button overlay on banner */}
+                                            {isDM && (
+                                                <button
+                                                    onClick={() => {
+                                                        setCampaignEditData({
+                                                            title: campaign.title,
+                                                            description: campaign.description || '',
+                                                            image_url: campaign.image_url || '',
+                                                            map_image_url: campaign.map_image_url || ''
+                                                        });
+                                                        setIsEditingCampaign(true);
+                                                    }}
+                                                    className="btn-icon"
+                                                    style={{
+                                                        position: 'absolute', top: '2rem', right: '2rem',
+                                                        background: 'rgba(15, 23, 42, 0.6)', color: 'white',
+                                                        backdropFilter: 'blur(10px)',
+                                                        border: '1px solid rgba(255,255,255,0.1)',
+                                                        zIndex: 10
+                                                    }}
+                                                >
+                                                    <Edit3 size={20} />
+                                                </button>
+                                            )}
                                         </div>
-                                        <h2 style={{ fontSize: '3rem', fontWeight: 900, marginBottom: '1.5rem' }}>Atlas de {campaign.title}</h2>
-                                        <p style={{ color: 'rgba(255,255,255,0.4)', maxWidth: '550px', margin: '0 auto', fontSize: '1.2rem', lineHeight: 1.6 }}>El conocimiento es poder. Navega por el menú de la izquierda para desplegar la historia de este mundo.</p>
+
+                                        {/* Text Content Section */}
+                                        <div style={{ padding: '0 2rem' }}>
+                                            <h2 style={{ fontSize: '5rem', fontWeight: 900, marginBottom: '2rem', letterSpacing: '-0.04em', color: 'white' }}>
+                                                Atlas de <span className="text-gradient">{campaign.title}</span>
+                                            </h2>
+
+                                            <div style={{
+                                                color: 'rgba(255,255,255,0.7)',
+                                                fontSize: '1.5rem',
+                                                lineHeight: 1.8,
+                                                whiteSpace: 'pre-wrap',
+                                                maxWidth: '900px',
+                                                fontFamily: 'var(--font-body)'
+                                            }}>
+                                                {campaign.description || "El conocimiento es poder. Navega por el menú de la izquierda para desplegar la historia de este mundo."}
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -1379,6 +1450,109 @@ export default function CampaignDetail() {
                             </div>
                         </motion.div>
                     </div>
+                )}
+
+                {/* CAMPAIGN EDIT MODAL */}
+                {isEditingCampaign && (
+                    <div style={{
+                        position: 'fixed', inset: 0,
+                        background: 'rgba(2, 6, 23, 0.9)',
+                        backdropFilter: 'blur(20px)',
+                        zIndex: 2000,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        padding: '2rem'
+                    }}>
+                        <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="glass-panel" style={{ maxWidth: '800px', width: '100%', padding: '3.5rem', border: '1px solid var(--primary)', maxHeight: '90vh', overflowY: 'auto' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}>
+                                <h1 style={{ fontSize: '2.2rem', fontWeight: 900 }}>Ajustes de la Campaña</h1>
+                                <button onClick={() => setIsEditingCampaign(false)} className="btn-icon"><X size={24} /></button>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginBottom: '0.8rem', textTransform: 'uppercase' }}>Título del Reino</label>
+                                    <input
+                                        value={campaignEditData.title}
+                                        onChange={e => setCampaignEditData({ ...campaignEditData, title: e.target.value })}
+                                        className="glass-input"
+                                        style={{ width: '100%', padding: '1.25rem', fontSize: '1.2rem', fontWeight: 800 }}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginBottom: '0.8rem', textTransform: 'uppercase' }}>Crónica Inicial / Descripción</label>
+                                    <textarea
+                                        value={campaignEditData.description}
+                                        onChange={e => setCampaignEditData({ ...campaignEditData, description: e.target.value })}
+                                        className="glass-input"
+                                        style={{ width: '100%', padding: '1.25rem', minHeight: '180px', lineHeight: 1.6 }}
+                                        placeholder="Narra la premisa de tu campaña..."
+                                    />
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginBottom: '0.8rem', textTransform: 'uppercase' }}>Imagen Destacada</label>
+                                        <ImageUploadBox url={campaignEditData.image_url} onFileSelect={async (f) => {
+                                            setIsUploading(true);
+                                            const url = await uploadImage(f);
+                                            setCampaignEditData({ ...campaignEditData, image_url: url });
+                                            setIsUploading(false);
+                                        }} isUploading={isUploading} />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginBottom: '0.8rem', textTransform: 'uppercase' }}>Mapa del Mundo</label>
+                                        <ImageUploadBox url={campaignEditData.map_image_url} onFileSelect={async (f) => {
+                                            setIsUploading(true);
+                                            const url = await uploadImage(f);
+                                            setCampaignEditData({ ...campaignEditData, map_image_url: url });
+                                            setIsUploading(false);
+                                        }} isUploading={isUploading} />
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1.5rem', marginTop: '2rem' }}>
+                                    <button className="btn-secondary" onClick={() => setIsEditingCampaign(false)}>Descartar</button>
+                                    <button className="btn-primary" onClick={handleUpdateCampaign} style={{ padding: '1rem 4rem' }}>Guardar Mundo</button>
+                                </div>
+
+                                {/* Danger Zone */}
+                                <div style={{ marginTop: '4rem', paddingTop: '2.5rem', borderTop: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                                    <h3 style={{ color: '#f87171', fontSize: '0.9rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <Skull size={18} /> Zona de Peligro
+                                    </h3>
+                                    <div style={{ background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.1)', padding: '1.5rem', borderRadius: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '2rem' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontWeight: 700, marginBottom: '4px', color: 'white' }}>Eliminar esta campaña</div>
+                                            <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.4)', lineHeight: 1.5 }}>Una vez eliminada, no hay marcha atrás. Se perderán todos los personajes, notas del atlas y sesiones del diario.</div>
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                setIsEditingCampaign(false);
+                                                setIsDeleteCampaignModalOpen(true);
+                                            }}
+                                            style={{
+                                                background: 'rgba(239, 68, 68, 0.1)',
+                                                color: '#f87171',
+                                                border: '1px solid rgba(239, 68, 68, 0.2)',
+                                                padding: '0.75rem 1.5rem',
+                                                borderRadius: '12px',
+                                                fontWeight: 800,
+                                                fontSize: '0.8rem',
+                                                cursor: 'pointer',
+                                                whiteSpace: 'nowrap'
+                                            }}
+                                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
+                                        >
+                                            Eliminar Campaña
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+
                 )}
             </AnimatePresence>
 

@@ -8,7 +8,7 @@ import { uploadImage, supabase } from '../lib/supabase';
 export default function Dashboard() {
     const { campaigns, loading, createCampaign } = useCampaigns();
     const [isCreating, setIsCreating] = useState(false);
-    const [newCampaign, setNewCampaign] = useState({ title: '', image_url: '', map_image_url: '' });
+    const [newCampaign, setNewCampaign] = useState({ title: '', description: '', image_url: '', map_image_url: '' });
     const [isUploading, setIsUploading] = useState(false);
     const [uploadContext, setUploadContext] = useState(null); // 'cover' or 'map'
     const [isJoinOpen, setIsJoinOpen] = useState(false);
@@ -38,7 +38,7 @@ export default function Dashboard() {
                 status: 'Activa',
                 invite_code: code
             });
-            setNewCampaign({ title: '', image_url: '', map_image_url: '' });
+            setNewCampaign({ title: '', description: '', image_url: '', map_image_url: '' });
             setIsCreating(false);
         } catch (err) {
             alert('Error al crear campaña');
@@ -170,6 +170,14 @@ export default function Dashboard() {
                             style={{ padding: '1.25rem', fontSize: '1.1rem' }}
                         />
 
+                        <textarea
+                            value={newCampaign.description}
+                            onChange={(e) => setNewCampaign({ ...newCampaign, description: e.target.value })}
+                            placeholder="Descripción de la campaña (Historia, premisa, ambientación...)"
+                            className="glass-input"
+                            style={{ padding: '1.25rem', minHeight: '120px', resize: 'vertical' }}
+                        />
+
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
                             <ImageUploadField
                                 label="Portada de la Campaña"
@@ -229,7 +237,11 @@ export default function Dashboard() {
                                     </div>
 
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-                                        <Calendar size={16} /> Última sesión: Hoy
+                                        <Calendar size={16} />
+                                        {campaign.last_session_date
+                                            ? `Última sesión: ${formatRelativeDate(campaign.last_session_date)}`
+                                            : 'Sin sesiones registradas'
+                                        }
                                     </div>
 
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
@@ -273,4 +285,17 @@ function ImageUploadField({ label, icon, url, isUploading, onFileSelect }) {
             </div>
         </div>
     );
+}
+
+function formatRelativeDate(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) return 'Hoy';
+    if (diffDays === 1) return 'Ayer';
+    if (diffDays < 7) return `Hace ${diffDays} días`;
+
+    return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
 }
