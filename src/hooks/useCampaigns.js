@@ -24,11 +24,18 @@ export function useCampaigns() {
             setLoading(true);
             const { data, error } = await supabase
                 .from('campaigns')
-                .select('*')
+                .select('*, characters(count)')
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
-            setCampaigns(data || []);
+
+            // Añadir conteo de jugadores reales
+            const enriched = (data || []).map(c => ({
+                ...c,
+                player_count: c.characters?.[0]?.count ?? 0
+            }));
+
+            setCampaigns(enriched);
         } catch (err) {
             console.error('Error loading campaigns:', err);
             setError(err.message);

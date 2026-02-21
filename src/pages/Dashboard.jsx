@@ -218,10 +218,13 @@ export default function Dashboard() {
                                 <div style={{ padding: '1.5rem' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                                            <Users size={16} color="var(--primary)" /> {campaign.players}
-                                        </div>
-                                        <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.1em', background: 'rgba(139, 92, 246, 0.1)', padding: '4px 10px', borderRadius: '20px' }}>
-                                            {campaign.system}
+                                            <Users size={16} color="var(--primary)" />
+                                            <span>
+                                                {campaign.player_count === 0
+                                                    ? 'Sin jugadores aún'
+                                                    : `${campaign.player_count} jugador${campaign.player_count !== 1 ? 'es' : ''}`
+                                                }
+                                            </span>
                                         </div>
                                     </div>
 
