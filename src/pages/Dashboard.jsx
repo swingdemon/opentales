@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Plus, Users, Calendar, ChevronRight, LayoutGrid, List, Upload, Loader2, X, Image as ImageIcon, Map as MapIcon } from 'lucide-react';
+import { Plus, Users, Calendar, ChevronRight, LayoutGrid, List, Upload, Loader2, X, Image as ImageIcon, Map as MapIcon, Shield, Key } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { FadeIn } from '../components/ui/FadeIn';
 import { useCampaigns } from '../hooks/useCampaigns';
@@ -11,22 +11,36 @@ export default function Dashboard() {
     const [newCampaign, setNewCampaign] = useState({ title: '', image_url: '', map_image_url: '' });
     const [isUploading, setIsUploading] = useState(false);
     const [uploadContext, setUploadContext] = useState(null); // 'cover' or 'map'
+    const [isJoinOpen, setIsJoinOpen] = useState(false);
+    const [joinCode, setJoinCode] = useState('');
 
     const handleCreate = async () => {
         if (!newCampaign.title.trim()) return;
+
+        // Generate a random 6-character code
+        const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+
         try {
             await createCampaign({
                 ...newCampaign,
                 gradient: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
                 players: '0 Jugadores',
                 system: 'D&D 5e',
-                status: 'Activa'
+                status: 'Activa',
+                invite_code: code
             });
             setNewCampaign({ title: '', image_url: '', map_image_url: '' });
             setIsCreating(false);
         } catch (err) {
             alert('Error al crear campaña');
         }
+    };
+
+    const handleJoin = async () => {
+        if (!joinCode.trim()) return;
+        alert(`Buscando mesa con el código: ${joinCode.toUpperCase()}\n\n(En breve conectaremos esto con la base de datos)`);
+        setIsJoinOpen(false);
+        setJoinCode('');
     };
 
     const handleFileUpload = async (file, type) => {
@@ -57,14 +71,54 @@ export default function Dashboard() {
                         Bienvenido de nuevo, Maestre. Tus mundos te esperan.
                     </p>
                 </div>
-                <button
-                    onClick={() => setIsCreating(true)}
-                    className="btn-primary"
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '1rem 2rem', boxShadow: '0 10px 30px rgba(139, 92, 246, 0.3)', borderRadius: '14px', fontWeight: 800 }}
-                >
-                    <Plus size={20} /> Nueva Campaña
-                </button>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                    <button
+                        onClick={() => setIsJoinOpen(true)}
+                        className="btn-secondary"
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '1rem 2rem', borderRadius: '14px', fontWeight: 800, background: 'rgba(255,255,255,0.05)', color: 'white' }}
+                    >
+                        <Shield size={20} /> Unirse a una Mesa
+                    </button>
+                    <button
+                        onClick={() => setIsCreating(true)}
+                        className="btn-primary"
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '1rem 2rem', boxShadow: '0 10px 30px rgba(139, 92, 246, 0.3)', borderRadius: '14px', fontWeight: 800 }}
+                    >
+                        <Plus size={20} /> Nueva Campaña
+                    </button>
+                </div>
             </div>
+
+            {/* JOIN CAMPAIGN MODAL */}
+            {isJoinOpen && (
+                <div className="glass-panel" style={{ padding: '2.5rem', marginBottom: '3rem', border: '1px solid #8b5cf6', background: 'rgba(139, 92, 246, 0.05)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <div style={{ width: '48px', height: '48px', background: 'rgba(139, 92, 246, 0.2)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a78bfa' }}>
+                                <Key size={24} />
+                            </div>
+                            <div>
+                                <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Código de Invitación</h2>
+                                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Pídele al Dungeon Master su código secreto</p>
+                            </div>
+                        </div>
+                        <button onClick={() => setIsJoinOpen(false)} className="btn-icon"><X size={20} /></button>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                        <input
+                            value={joinCode}
+                            onChange={(e) => setJoinCode(e.target.value)}
+                            placeholder="Ej: TALES-8F92A..."
+                            className="glass-input"
+                            style={{ flex: 1, padding: '1.25rem', fontSize: '1.2rem', textAlign: 'center', letterSpacing: '0.1em', fontWeight: 800, textTransform: 'uppercase' }}
+                        />
+                        <button onClick={handleJoin} className="btn-primary" style={{ padding: '0 3rem' }}>
+                            Unirse
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {isCreating && (
                 <div className="glass-panel" style={{ padding: '2.5rem', marginBottom: '3rem', border: '1px solid var(--primary)' }}>
