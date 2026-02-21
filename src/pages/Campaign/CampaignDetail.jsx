@@ -1229,9 +1229,10 @@ export default function CampaignDetail() {
                                                 </div>
                                             ) : (
                                                 session.notes?.map(note => {
-                                                    const isCharacter = !!note.character;
-                                                    const authorName = isCharacter ? note.character.name : 'Dungeon Master';
-                                                    const avatarUrl = isCharacter ? note.character?.image : null;
+                                                    // isCharacter: tiene personaje vinculado (el join puede fallar por RLS, por eso usamos character_id como fallback)
+                                                    const isCharacter = !!note.character || !!note.character_id;
+                                                    const authorName = note.character?.name ?? (note.character_id ? 'Héroe Desconocido' : 'Dungeon Master');
+                                                    const avatarUrl = note.character?.image ?? null;
                                                     // Generate a stable color based on character name
                                                     const colors = ['#60a5fa', '#34d399', '#f472b6', '#fbbf24', '#a78bfa', '#fb923c'];
                                                     const colorIdx = isCharacter
