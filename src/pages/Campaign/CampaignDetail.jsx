@@ -4,7 +4,7 @@ import {
     Plus, Search, Filter, Map as MapIcon, Book, Users,
     Settings, ChevronRight, Eye, EyeOff, Save, X, Edit3, MessageSquare, Trash2, LogOut,
     MapPin, Castle, Home, Trees, Mountain, Beer, Skull, Image as ImageIcon, Check, ChevronLeft,
-    Upload, Loader2, FolderOpen, Info, ChevronDown, Layout, Globe, Menu,
+    Upload, Loader2, FolderOpen, Info, ChevronDown, Layout, Globe, Menu, ZoomIn, ZoomOut, Maximize,
     Sword, Shield, Scroll, Key, Store, Ghost, Waves, Anchor, Flame, Sparkles, Droplets, Landmark, Compass, User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -127,6 +127,7 @@ export default function CampaignDetail() {
     const [isCascadeModalOpen, setIsCascadeModalOpen] = useState(false);
     const [isDeleteCampaignModalOpen, setIsDeleteCampaignModalOpen] = useState(false);
     const [entryToDelete, setEntryToDelete] = useState(null);
+    const [mapScale, setMapScale] = useState(1);
 
     useEffect(() => {
         const handleResize = () => setWindowWidth(window.innerWidth);
@@ -1100,31 +1101,78 @@ export default function CampaignDetail() {
                         <div
                             ref={mapContainerRef}
                             className="fade-in"
-                            style={{ height: 'calc(100vh - 64px)', position: 'relative', overflow: 'hidden' }}
+                            style={{
+                                height: 'calc(100vh - 64px)',
+                                position: 'relative',
+                                overflow: 'hidden',
+                                background: '#020617',
+                                touchAction: 'none' // Previene scroll accidental en móviles al arrastrar
+                            }}
+                            onWheel={(e) => {
+                                // Zoom con rueda del ratón
+                                const delta = e.deltaY;
+                                setMapScale(prev => {
+                                    const zoomStep = 0.1;
+                                    const newScale = delta < 0 ? prev + zoomStep : prev - zoomStep;
+                                    return Math.min(Math.max(newScale, 0.5), 4); // Limite entre 50% y 400%
+                                });
+                            }}
                         >
+                            {/* Zoom Controls */}
+                            <div style={{ position: 'absolute', bottom: '2rem', right: '2rem', zIndex: 100, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <button
+                                    className="btn-icon"
+                                    onClick={() => setMapScale(prev => Math.min(prev + 0.25, 3))}
+                                    style={{ background: 'rgba(15, 23, 42, 0.8)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', padding: '12px' }}
+                                    title="Acercar"
+                                >
+                                    <ZoomIn size={20} />
+                                </button>
+                                <button
+                                    className="btn-icon"
+                                    onClick={() => setMapScale(1)}
+                                    style={{ background: 'rgba(15, 23, 42, 0.8)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', padding: '12px' }}
+                                    title="Resetear Zoom"
+                                >
+                                    <Maximize size={20} />
+                                </button>
+                                <button
+                                    className="btn-icon"
+                                    onClick={() => setMapScale(prev => Math.max(prev - 0.25, 0.5))}
+                                    style={{ background: 'rgba(15, 23, 42, 0.8)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', padding: '12px' }}
+                                    title="Alejar"
+                                >
+                                    <ZoomOut size={20} />
+                                </button>
+                                <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '4px 8px', borderRadius: '8px', fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', textAlign: 'center', fontWeight: 800 }}>
+                                    {Math.round(mapScale * 100)}%
+                                </div>
+                            </div>
+
                             <motion.div
                                 drag
-                                dragMomentum={true}
-                                dragConstraints={mapContainerRef}
+                                dragMomentum={false}
                                 initial={{ x: 0, y: 0 }}
+                                animate={{ scale: mapScale }}
                                 onDoubleClick={(e) => {
                                     if (!isDM) return;
                                     // Solo crear pin si el clic es en la superficie del mapa
                                     if (e.target !== e.currentTarget) return;
                                     const rect = e.currentTarget.getBoundingClientRect();
+                                    // Ajustamos la posición del pin teniendo en cuenta el zoom real visual
                                     setTempPinPos({ x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100 });
                                     setPinFormData({ title: '', content: '', is_public: true, image_url: '', map_image_url: '' });
                                     setEditingLoreId(null);
                                     setIsPinModalOpen(true);
                                 }}
                                 style={{
-                                    width: '200%', height: '200%',
+                                    width: '100%', height: '100%',
                                     position: 'absolute',
-                                    top: '-50%', left: '-50%',
-                                    background: `url(${mapContext?.map_image_url || campaign.map_image_url || 'https://images.unsplash.com/photo-1580136608260-42d1c49e6a75?auto=format&fit=crop&q=80&w=2000'}) center/cover`,
+                                    background: `url(${mapContext?.map_image_url || campaign.map_image_url || 'https://images.unsplash.com/photo-1580136608260-42d1c49e6a75?auto=format&fit=crop&q=80&w=2000'}) center/contain`,
                                     cursor: isDM ? 'crosshair' : 'grab',
-                                    backgroundSize: 'cover',
-                                    backgroundRepeat: 'no-repeat'
+                                    backgroundSize: 'contain',
+                                    backgroundRepeat: 'no-repeat',
+                                    transformOrigin: 'center center'
                                 }}
                                 whileTap={{ cursor: 'grabbing' }}
                             >
